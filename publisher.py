@@ -87,14 +87,16 @@ def publish_env(config, env_name, user_config, included_instances=asterisk_tuple
             log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
             copyfile(mxd_to_copy_from, mxd_path)
         mxd = arcpy.mapping.MapDocument(mxd_path)
-        if data_source_mappings:
-            update_data_sources(mxd, data_source_mappings)
+        try:
+            if data_source_mappings:
+                update_data_sources(mxd, data_source_mappings)
+                mxd.save()
+            for ags_instance in ags_instances:
+                ags_connection = user_config['ags_connections'][ags_instance]
+                publish_service(mxd, ags_instance, ags_connection, service_folder, service_properties)
             mxd.save()
-        for ags_instance in ags_instances:
-            ags_connection = user_config['ags_connections'][ags_instance]
-            publish_service(mxd, ags_instance, ags_connection, service_folder, service_properties)
-        mxd.save()
-        del mxd
+        finally:
+            del mxd
 
 
 def publish_service(mxd, ags_instance, ags_connection, service_folder='', service_properties=None):

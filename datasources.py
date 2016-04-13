@@ -9,7 +9,10 @@ def get_unique_data_sources(mxd_paths):
     data_sources = []
     for mxd_path in mxd_paths:
         mxd = arcpy.mapping.MapDocument(mxd_path)
-        data_sources.extend(get_data_sources(mxd))
+        try:
+            data_sources.extend(get_data_sources(mxd))
+        finally:
+            del mxd
     unique_data_sources = list(set(data_sources))
     return unique_data_sources
 
