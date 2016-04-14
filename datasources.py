@@ -1,7 +1,15 @@
-import arcpy
 import logging
+import os
+
+import arcpy
 
 log = logging.getLogger(__name__)
+
+
+def list_mxds_in_folder(mxd_dir):
+    log.info('Listing MXDs in folder: {}'.format(mxd_dir))
+    return map(lambda x: os.path.abspath(os.path.join(mxd_dir, x)),
+               filter(lambda x: x.endswith('.mxd'), os.listdir(mxd_dir)))
 
 
 def get_unique_data_sources(mxd_paths):
