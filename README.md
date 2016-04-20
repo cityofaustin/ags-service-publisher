@@ -89,6 +89,12 @@ You must also create a `userconfig.yml` file specifying the paths to the ArcGIS 
     ```
     python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], ['dev'])"
     ```
+2. Publish all the environments in the `./config/CouncilDistrictMap.yml` configuration file (e.g., `dev`, `test`, and `prod`), but only publish the `CouncilDistrictsFill` service:
+
+    ```
+    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], services_to_publish=['CouncilDistrictsFill'])"
+    ```
+  - **Tip:** You can use [`fnmatch`](https://docs.python.org/2/library/fnmatch.html)-style wildcards in any of the strings in the arguments to `run_batch_publishing_job`, so you could put `services_to_publish=['CouncilDistrict*']` and both `CouncilDistrictMap` and `CouncilDistrictsFill` would be published.
 
 ### TODO
 
