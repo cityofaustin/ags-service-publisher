@@ -14,13 +14,23 @@ You create one configuration file per service folder -- each service folder can 
 
 You must also create a `userconfig.yml` file specifying the paths to the ArcGIS Server connection file for each of your server instances.
 
-See the example configuration files below for more details.
-
 ### Requirements
 
+  - Windows 7+
   - ArcGIS Desktop 10.3+
   - Python 2.7+
-  - PyYAML 3.11
+  - [pip](https://pip.pypa.io/en/stable/installing/)
+  - [PyYAML](https://pypi.python.org/pypi/PyYAML) 3.11 (will be installed by pip as described in the Setup Instructions)
+
+### Setup Instructions
+
+  - Clone this repository to a local directory
+  - Open a Windows command prompt in the local directory
+  - Type `pip install -r requirements.txt`
+  - Create a folder named `config` in the local directory
+  - Create a file named `userconfig.yml` in the `config` folder, and populate it with a key named `ags_connections` containing a mapping of ArcGIS Server instance names and the path to an `.ags` connection file for each instance.
+  - Create additional configuration files for each service folder you want to publish.
+  - See the [example configuration files](#example-configuration-files) section below for more details.
 
 ### Example configuration files
 
