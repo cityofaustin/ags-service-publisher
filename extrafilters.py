@@ -1,5 +1,5 @@
-import fnmatch
 import collections
+import fnmatch
 
 
 def superfilter(names, inclusion_patterns=(), exclusion_patterns=()):
@@ -30,9 +30,10 @@ def multifilter(names, patterns):
             if fnmatch.fnmatch(name, pattern):
                 yield name
 
+
 if __name__ == "__main__":
     names = ['a', 'b', 'c']
-    assert superfilter(names, ('a',)) == ['a',]
+    assert superfilter(names, ('a',)) == ['a', ]
     names = ('a', 'b', 'c')
     assert superfilter(names, ('a',)) == ('a',)
     names = {
@@ -40,7 +41,7 @@ if __name__ == "__main__":
         'b': 2,
         'c': 3
     }
-    assert superfilter(names, ('a',)) == { 'a': 1}
+    assert superfilter(names, ('a',)) == {'a': 1}
     names = collections.OrderedDict((
         ('a', 1),
         ('b', 2),

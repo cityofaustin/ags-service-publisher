@@ -1,6 +1,6 @@
-import inspect
-import gc
 import collections
+import gc
+import inspect
 
 
 def snake_case_to_camel_case(input):

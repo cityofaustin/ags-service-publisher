@@ -1,40 +1,25 @@
-import os
-import collections
-import logging
 import datetime
+import logging
+import os
 from shutil import copyfile
 
 import arcpy
 
+from ags_utils import list_services, delete_service
+from config_io import get_config, default_config_dir
 from datasources import update_data_sources
 from extrafilters import superfilter
-from config_io import read_config_from_file
-from sddraft_io import modify_sddraft
 from helpers import snake_case_to_camel_case, asterisk_tuple, empty_tuple
+from sddraft_io import modify_sddraft
 
 arcpy.env.overwriteOutput = True
-
-default_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config'))
 
 log = logging.getLogger(__name__)
 
 
-def get_config(config_name, config_dir=default_config_dir):
-    log.debug('Getting config \'{}\' in directory: {}'.format(config_name, config_dir))
-    return read_config_from_file(os.path.abspath(os.path.join(config_dir, config_name + '.yml')))
-
-
-def get_configs(config_names=asterisk_tuple, config_dir=default_config_dir):
-    log.debug('Getting configs \'{}\' in directory: {}'.format(config_names, config_dir))
-    if len(config_names) == 1 and config_names[0] == '*':
-        config_names = (os.path.splitext(os.path.basename(config_file))[0] for config_file in superfilter(
-            os.listdir(config_dir), inclusion_patterns=('*.yml',), exclusion_patterns=('userconfig.yml',)))
-    return collections.OrderedDict(((config_name, get_config(config_name, config_dir)) for config_name in config_names))
-
-
 def publish_config(config, config_dir, included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                    included_instances=asterisk_tuple, excluded_instances=empty_tuple, included_services=asterisk_tuple,
-                   excluded_services=empty_tuple):
+                   excluded_services=empty_tuple, cleanup_services=False):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
         raise RuntimeError('No publishable environments specified!')
@@ -43,22 +28,23 @@ def publish_config(config, config_dir, included_envs=asterisk_tuple, excluded_en
     user_config = get_config('userconfig', config_dir)
     for env_name in env_names:
         publish_env(config, env_name, user_config, included_instances, excluded_instances, included_services,
-                    excluded_services)
+                    excluded_services, cleanup_services)
 
 
 def publish_config_name(config_name, config_dir=default_config_dir, included_envs=asterisk_tuple,
                         excluded_envs=empty_tuple,
                         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
                         included_services=asterisk_tuple,
-                        excluded_services=empty_tuple):
+                        excluded_services=empty_tuple,
+                        cleanup_services=False):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
     publish_config(config, config_dir, included_envs, excluded_envs, included_instances, excluded_instances,
-                   included_services, excluded_services)
+                   included_services, excluded_services, cleanup_services)
 
 
 def publish_env(config, env_name, user_config, included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                included_services=asterisk_tuple, excluded_services=empty_tuple):
+                included_services=asterisk_tuple, excluded_services=empty_tuple, cleanup_services=False):
     env = config['environments'][env_name]
     mxd_dir = env['mxd_dir']
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
@@ -98,8 +84,12 @@ def publish_env(config, env_name, user_config, included_instances=asterisk_tuple
         finally:
             del mxd
 
+    if cleanup_services:
+        for ags_instance in ags_instances:
+            cleanup_instance(ags_instance, config)
 
-def publish_service(mxd, ags_instance, ags_connection, service_folder='', service_properties=None):
+
+def publish_service(mxd, ags_instance, ags_connection, service_folder=None, service_properties=None):
     mxd_path = mxd.filePath
     service_name = os.path.splitext(os.path.basename(mxd_path))[0]
 
@@ -142,3 +132,44 @@ def publish_service(mxd, ags_instance, ags_connection, service_folder='', servic
             .format(service_folder, service_name, datetime.datetime.now())
         log.error(error_message)
         raise RuntimeError(error_message, analysis['errors'])
+
+
+def cleanup_config(config, included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+                   included_instances=asterisk_tuple, excluded_instances=empty_tuple):
+    env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No cleanable environments specified!')
+
+    log.info('Cleaning environments: {}'.format(', '.join(env_names)))
+    for env_name in env_names:
+        cleanup_env(config, env_name, included_instances, excluded_instances)
+
+
+def cleanup_config_name(config_name, config_dir=default_config_dir, included_envs=asterisk_tuple,
+                        excluded_envs=empty_tuple,
+                        included_instances=asterisk_tuple, excluded_instances=empty_tuple):
+    config = get_config(config_name, config_dir)
+    log.info('Cleaning config \'{}\''.format(config_name))
+    cleanup_config(config, config_dir, included_envs, excluded_envs, included_instances, excluded_instances)
+
+
+def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_instances=empty_tuple):
+    env = config['environments'][env_name]
+    ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
+    if len(ags_instances) == 0:
+        raise RuntimeError('No cleanable instances specified!')
+    for ags_instance in ags_instances:
+        cleanup_instance(ags_instance, config)
+
+
+def cleanup_instance(ags_instance, config):
+    configured_services = config['services']
+    service_folder = config.get('service_folder')
+    log.info('Cleaning up unused services on ArcGIS Server instance {}, service folder {}'.format(ags_instance,
+                                                                                                  service_folder))
+    existing_services = list_services(ags_instance, service_folder)
+    services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
+    log.info('Removing {} services: {}'.format(len(services_to_remove),
+                                               [service['serviceName'] for service in services_to_remove]))
+    for service in services_to_remove:
+        delete_service(ags_instance, service['serviceName'], service_folder, service['type'])
