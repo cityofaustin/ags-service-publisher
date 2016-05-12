@@ -38,10 +38,12 @@ def list_services(ags_instance, service_folder=None, config_dir=default_config_d
     baseurl = ags_props['url']
     token = ags_props['token']
     url = urljoin(baseurl, '/'.join(('/arcgis/admin/services', service_folder)))
+    log.info(url)
     r = requests.get(url, {'token': token, 'f': 'json'})
     assert (r.status_code == 200)
     data = r.json()
     if data.get('status') == 'error':
+        log.error(data)
         raise RuntimeError(data.get('messages'))
     services = data['services']
     return services
@@ -62,6 +64,7 @@ def delete_service(ags_instance, service_name, service_folder=None, service_type
     assert (r.status_code == 200)
     data = r.json()
     if data.get('status') == 'error':
+        log.error(data)
         raise RuntimeError(data.get('messages'))
     log.info(
         'Service {} successfully deleted from ArcGIS Server instance {}, Folder: {}'.format(service_name, ags_instance,
