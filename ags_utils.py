@@ -9,7 +9,9 @@ from config_io import get_config, default_config_dir
 log = logging.getLogger(__name__)
 
 
-def generate_token(ags_instance, username=None, password=None, expiration='15', config_dir=default_config_dir):
+def generate_token(ags_instance=None, username=None, password=None, expiration='15', config_dir=default_config_dir):
+    if not ags_instance:
+        ags_instance = raw_input('ArcGIS Server instance: ')
     if not username:
         username = raw_input('User name: ')
     if not password:
@@ -37,7 +39,7 @@ def list_services(ags_instance, service_folder=None, config_dir=default_config_d
     ags_props = user_config['ags_instances'][ags_instance]
     baseurl = ags_props['url']
     token = ags_props['token']
-    url = urljoin(baseurl, '/'.join(('/arcgis/admin/services', service_folder)))
+    url = urljoin(baseurl, '/'.join((part for part in ('/arcgis/admin/services', service_folder) if part)))
     log.info(url)
     r = requests.get(url, {'token': token, 'f': 'json'})
     assert (r.status_code == 200)
@@ -47,6 +49,31 @@ def list_services(ags_instance, service_folder=None, config_dir=default_config_d
         raise RuntimeError(data.get('messages'))
     services = data['services']
     return services
+
+
+def list_service_workspaces(ags_instance, service_name, service_folder=None, service_type='MapServer',
+                            config_dir=default_config_dir):
+    if service_type == 'GeometryServer':
+        log.warn('Unsupported service type {} for service {}'.format(service_type, service_name))
+        return
+    log.info(
+        'Listing workspaces for service {} on ArcGIS Server instance {}, Folder: {}'.format(service_name, ags_instance,
+                                                                                            service_folder))
+    user_config = get_config('userconfig', config_dir)
+    ags_props = user_config['ags_instances'][ags_instance]
+    baseurl = ags_props['url']
+    token = ags_props['token']
+    url = urljoin(baseurl, '/'.join((part for part in (
+        '/arcgis/admin/services', service_folder, '{}.{}'.format(service_name, service_type),
+        'iteminfo/manifest/manifest.json') if part)))
+    log.info(url)
+    r = requests.get(url, {'token': token, 'f': 'json'})
+    assert (r.status_code == 200)
+    data = r.json()
+    if data.get('status') == 'error':
+        log.error(data)
+        raise RuntimeError(data.get('messages'))
+    return data['databases']
 
 
 def delete_service(ags_instance, service_name, service_folder=None, service_type='MapServer',
