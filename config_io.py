@@ -5,7 +5,7 @@ from collections import OrderedDict
 import yaml  # PyYAML: http://pyyaml.org/
 
 from extrafilters import superfilter
-from helpers import asterisk_tuple
+from helpers import asterisk_tuple, empty_tuple
 
 log = logging.getLogger(__name__)
 
@@ -17,11 +17,15 @@ def get_config(config_name, config_dir=default_config_dir):
     return read_config_from_file(os.path.abspath(os.path.join(config_dir, config_name + '.yml')))
 
 
-def get_configs(config_names=asterisk_tuple, config_dir=default_config_dir):
-    log.debug('Getting configs \'{}\' in directory: {}'.format(config_names, config_dir))
-    if len(config_names) == 1 and config_names[0] == '*':
+def get_configs(included_configs=asterisk_tuple, excluded_configs=empty_tuple, config_dir=default_config_dir):
+    if len(included_configs) == 1 and included_configs[0] == '*':
+        log.debug('No config names specified, reading all configs in directory: {}'.format(config_dir))
         config_names = (os.path.splitext(os.path.basename(config_file))[0] for config_file in superfilter(
             os.listdir(config_dir), inclusion_patterns=('*.yml',), exclusion_patterns=('userconfig.yml',)))
+    else:
+        config_names = included_configs
+    config_names = superfilter(config_names, included_configs, excluded_configs)
+    log.debug('Getting configs \'{}\' in directory: {}'.format(config_names, config_dir))
     return OrderedDict(((config_name, get_config(config_name, config_dir)) for config_name in config_names))
 
 
