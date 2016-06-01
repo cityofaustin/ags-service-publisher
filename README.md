@@ -108,21 +108,26 @@ You must also create a `userconfig.yml` file specifying the properties (URL, tok
 1. Publish the `dev` environment in the `./config/CouncilDistrictMap.yml` configuration file:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], ['dev'])"
+    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
     ```
-2. Publish all the environments in the `./config/CouncilDistrictMap.yml` configuration file (e.g., `dev`, `test`, and `prod`), but only publish the `CouncilDistrictsFill` service:
+2. Publish all **except** for the `dev` environment (e.g. `test` and `prod`) using `excluded_envs`:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], services_to_publish=['CouncilDistrictsFill'])"
+    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], excluded_envs=['dev'])"
     ```
-  - **Tip:** You can use [`fnmatch`](https://docs.python.org/2/library/fnmatch.html)-style wildcards in any of the strings in the arguments to `run_batch_publishing_job`, so you could put `services_to_publish=['CouncilDistrict*']` and both `CouncilDistrictMap` and `CouncilDistrictsFill` would be published.
+3. Publish all the environments in the `./config/CouncilDistrictMap.yml` configuration file (e.g., `dev`, `test`, and `prod`), but only publish the `CouncilDistrictsFill` service:
 
-3. Clean up any services that have not been defined in the `./config/CouncilDistrictMap.yml` configuration file:
+    ```
+    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
+    ```
+  - **Tip:** You can use [`fnmatch`](https://docs.python.org/2/library/fnmatch.html)-style wildcards in any of the strings in the arguments to `run_batch_publishing_job`, so you could put `included_services=['CouncilDistrict*']` and both `CouncilDistrictMap` and `CouncilDistrictsFill` would be published.
+
+4. Clean up any services that have not been defined in the `./config/CouncilDistrictMap.yml` configuration file:
 
    ```
    python -c "import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])
    ```
-4. Generate an ArcGIS Admin REST API token for an ArcGIS Server instance named `coagisd1` that expires in 30 days:
+5. Generate an ArcGIS Admin REST API token for an ArcGIS Server instance named `coagisd1` that expires in 30 days:
 
    ```
    python -c "import ags_utils; print ags_utils.generate_token('coagisd1', expiration='43200')"
