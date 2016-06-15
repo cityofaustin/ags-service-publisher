@@ -5,7 +5,7 @@ from shutil import copyfile
 
 import arcpy
 
-from ags_utils import list_services, delete_service
+from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
 from config_io import get_config, default_config_dir
 from datasources import update_data_sources
 from extrafilters import superfilter
@@ -174,3 +174,18 @@ def cleanup_instance(ags_instance, config):
                                                [service['serviceName'] for service in services_to_remove]))
     for service in services_to_remove:
         delete_service(ags_instance, service['serviceName'], service_folder, service['type'])
+
+
+def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+                        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                        config_dir=default_config_dir):
+    userconfig = get_config('userconfig', config_dir)
+    ags_instances = superfilter(userconfig['ags_instances'].keys(), included_instances, excluded_instances)
+    for ags_instance in ags_instances:
+        service_folders = list_service_folders(ags_instance)
+        for service_folder in service_folders:
+            for service in list_services(ags_instance, service_folder):
+                for dataset in list_service_workspaces(ags_instance, service['serviceName'], service_folder, service['type']):
+                    dataset_name = os.path.basename(dataset)
+                    if superfilter((dataset_name,), included_datasets, excluded_datasets):
+                        yield (ags_instance, dataset_name, dataset, service['serviceName'], service_folder)
