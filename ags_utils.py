@@ -1,17 +1,15 @@
 import getpass
-import logging
+from xml.etree import ElementTree
 
 import requests
 from requests.compat import urljoin
 
-from xml.etree import ElementTree
-
 from config_io import get_config, default_config_dir
+from logging_io import setup_logger
 
-log = logging.getLogger(__name__)
+log = setup_logger(__name__)
 
-
-def generate_token(ags_instance=None, username=None, password=None, expiration='15', config_dir=default_config_dir):
+def generate_token(ags_instance=None, username=None, password=None, expiration=15, config_dir=default_config_dir):
     if not ags_instance:
         ags_instance = raw_input('ArcGIS Server instance: ')
     if not username:
@@ -22,16 +20,16 @@ def generate_token(ags_instance=None, username=None, password=None, expiration='
     user_config = get_config('userconfig', config_dir)
     ags_props = user_config['ags_instances'][ags_instance]
     baseurl = ags_props['url']
-    r = requests.post(baseurl + '/arcgis/admin/generateToken',
-                      {'username': username, 'password': password, 'client': 'requestip', 'expiration': expiration,
-                       'f': 'json'})
+    url = urljoin(baseurl, '/arcgis/admin/generateToken')
+    log.debug(url)
+    r = requests.post(url, {'username': username, 'password': password, 'client': 'requestip', 'expiration': str(expiration),
+                            'f': 'json'})
     assert r.status_code == 200
     data = r.json()
     if data.get('status') == 'error':
         raise RuntimeError(data.get('messages'))
-    log.info('Successfully generated token for ArcGIS Server instance: {}, user: {}, expires: {}'.format(ags_instance,
-                                                                                                         username, data[
-                                                                                                             'expires']))
+    log.info('Successfully generated token for ArcGIS Server instance: {}, user: {}, expires: {}'
+             .format(ags_instance, username, data['expires']))
     return data['token']
 
 def list_service_folders(ags_instance, config_dir=default_config_dir):
@@ -41,7 +39,7 @@ def list_service_folders(ags_instance, config_dir=default_config_dir):
     baseurl = ags_props['url']
     token = ags_props['token']
     url = urljoin(baseurl, '/arcgis/admin/services')
-    log.info(url)
+    log.debug(url)
     r = requests.get(url, {'token': token, 'f': 'json'})
     assert (r.status_code == 200)
     data = r.json()
@@ -59,7 +57,7 @@ def list_services(ags_instance, service_folder=None, config_dir=default_config_d
     baseurl = ags_props['url']
     token = ags_props['token']
     url = urljoin(baseurl, '/'.join((part for part in ('/arcgis/admin/services', service_folder) if part)))
-    log.info(url)
+    log.debug(url)
     r = requests.get(url, {'token': token, 'f': 'json'})
     assert (r.status_code == 200)
     data = r.json()
@@ -73,11 +71,11 @@ def list_services(ags_instance, service_folder=None, config_dir=default_config_d
 def list_service_workspaces(ags_instance, service_name, service_folder=None, service_type='MapServer',
                             config_dir=default_config_dir):
     if service_type == 'GeometryServer':
-        log.warn('Unsupported service type {} for service {} in folder {}'.format(service_type, service_name, service_folder))
+        log.warn('Unsupported service type {} for service {} in folder {}'
+                 .format(service_type, service_name, service_folder))
         return ()
-    log.info(
-        'Listing workspaces for service {} on ArcGIS Server instance {}, Folder: {}'.format(service_name, ags_instance,
-                                                                                            service_folder))
+    log.info('Listing workspaces for service {} on ArcGIS Server instance {}, Folder: {}'
+             .format(service_name, ags_instance, service_folder))
     user_config = get_config('userconfig', config_dir)
     ags_props = user_config['ags_instances'][ags_instance]
     baseurl = ags_props['url']
@@ -85,7 +83,7 @@ def list_service_workspaces(ags_instance, service_name, service_folder=None, ser
     url = urljoin(baseurl, '/'.join((part for part in (
         '/arcgis/admin/services', service_folder, '{}.{}'.format(service_name, service_type),
         'iteminfo/manifest/manifest.xml') if part)))
-    log.info(url)
+    log.debug(url)
     r = requests.get(url, {'token': token})
     assert (r.status_code == 200)
     data = r.text
@@ -99,24 +97,23 @@ def list_service_workspaces(ags_instance, service_name, service_folder=None, ser
 
 def delete_service(ags_instance, service_name, service_folder=None, service_type='MapServer',
                    config_dir=default_config_dir):
-    log.info('Deleting service {} on ArcGIS Server instance {}, Folder: {}'.format(service_name, ags_instance,
-                                                                                   service_folder))
+    log.info('Deleting service {} on ArcGIS Server instance {}, Folder: {}'
+             .format(service_name, ags_instance, service_folder))
     user_config = get_config('userconfig', config_dir)
     ags_props = user_config['ags_instances'][ags_instance]
     baseurl = ags_props['url']
     token = ags_props['token']
     url = urljoin(baseurl, '/'.join((part for part in (
         '/arcgis/admin/services', service_folder, '{}.{}'.format(service_name, service_type), 'delete') if part)))
-    log.info(url)
+    log.debug(url)
     r = requests.post(url, {'token': token, 'f': 'json'})
     assert (r.status_code == 200)
     data = r.json()
     if data.get('status') == 'error':
         log.error(data)
         raise RuntimeError(data.get('messages'))
-    log.info(
-        'Service {} successfully deleted from ArcGIS Server instance {}, Folder: {}'.format(service_name, ags_instance,
-                                                                                            service_folder))
+    log.info('Service {} successfully deleted from ArcGIS Server instance {}, Folder: {}'
+             .format(service_name, ags_instance, service_folder))
 
 def parse_datasets_from_service_manifest(data):
     xpath = './Databases/SVCDatabase/Datasets/SVCDataset/OnPremisePath'

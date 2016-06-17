@@ -1,8 +1,8 @@
-import logging
 from xml.etree import ElementTree
 
-log = logging.getLogger(__name__)
+from logging_io import setup_logger
 
+log = setup_logger(__name__)
 
 def modify_sddraft(sddraft, xpath_pairs=None):
     log.info('Modifying service definition draft file: {}'.format(sddraft))

@@ -1,10 +1,10 @@
-import logging
 import os
 
 import arcpy
 
-log = logging.getLogger(__name__)
+from logging_io import setup_logger
 
+log = setup_logger(__name__)
 
 def list_mxds_in_folder(mxd_dir):
     log.info('Listing MXDs in folder: {}'.format(mxd_dir))

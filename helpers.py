@@ -1,14 +1,17 @@
 import collections
+import contextlib
 import gc
 import inspect
 
-
-def snake_case_to_camel_case(input):
-    return ''.join(word.capitalize() for word in input.split('_'))
+import sys
 
 
-def snake_case_to_sentence_case(input):
-    return ' '.join(input.split('_')).capitalize()
+def snake_case_to_camel_case(input_string):
+    return ''.join(word.capitalize() for word in input_string.split('_'))
+
+
+def snake_case_to_sentence_case(input_string):
+    return ' '.join(input_string.split('_')).capitalize()
 
 
 def format_arguments(args):
@@ -37,6 +40,15 @@ def dump_func():
     argspec = inspect.getargspec(func)
     return func.func_name, collections.OrderedDict((arg, frame.f_locals[arg]) for arg in argspec.args)
 
+
+# Adapted from http://stackoverflow.com/a/9836725
+@contextlib.contextmanager
+def file_or_stdout(file_name, mode='w'):
+    if file_name is None:
+        yield sys.stdout
+    else:
+        with open(file_name, mode) as out_file:
+            yield out_file
 
 empty_tuple = ()
 asterisk_tuple = ('*',)

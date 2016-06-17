@@ -1,4 +1,3 @@
-import logging
 import os
 from collections import OrderedDict
 
@@ -7,7 +6,9 @@ import yaml  # PyYAML: http://pyyaml.org/
 from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
 
-log = logging.getLogger(__name__)
+from logging_io import setup_logger
+
+log = setup_logger(__name__)
 
 default_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config'))
 
