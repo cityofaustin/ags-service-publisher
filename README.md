@@ -33,13 +33,13 @@ instances.
   - Type `pip install -r requirements.txt`
   - Create a folder named `config` in the local directory
   - Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with a key named
-  `ags_instances` containing a mapping of ArcGIS Server instance names and the following properties:
+    `ags_instances` containing a mapping of ArcGIS Server instance names and the following properties:
     - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
     - `token`: [ArcGIS Admin REST API token](http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/) (see the ["Generate an ArcGIS Admin REST API token"](#generate-token) example below for more details.)
     - `ags_connection`: Path to an `.ags` connection file for each instance.
   - Create additional configuration files for each service folder you want to publish.
     - MXD files are matched based on the names of the services, for example `CouncilDistrictsFill` maps to
-    `CouncilDistrictsFill.mxd`.
+      `CouncilDistrictsFill.mxd`.
     - Configuration files must have a `.yml` extension.
   - See the [example configuration files](#example-configuration-files) section below for more details.
 
@@ -136,7 +136,7 @@ ags_instances:
 ### Clean up services
 
 1. Clean up (remove) any existing services in the `CouncilDistrictMap` service folder that have not been defined in the
-`CouncilDistrictMap.yml` configuration file:
+   `CouncilDistrictMap.yml` configuration file:
 
    ```
    python -c "import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])
@@ -166,7 +166,7 @@ instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate token
 
-1. Generate an ArcGIS Admin REST API token for an ArcGIS Server instance named `coagisd1`
+1. Generate an [ArcGIS Admin REST API token](http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/) for an ArcGIS Server instance named `coagisd1`
    that expires in 30 days:
 
    ```
@@ -179,13 +179,13 @@ corresponding to the ArcGIS server instance it was generated on.
 ## Tips
 
 - You can use [`fnmatch`](https://docs.python.org/2/library/fnmatch.html)-style wildcards in any of the
-   strings in the list arguments to the runner functions, so, for example, you could put `included_services=['CouncilDistrict*']`
-   and both the `CouncilDistrictMap` and `CouncilDistrictsFill` services would be published.
+  strings in the list arguments to the runner functions, so, for example, you could put `included_services=['CouncilDistrict*']`
+  and both the `CouncilDistrictMap` and `CouncilDistrictsFill` services would be published.
 - All of the runner functions accept a `verbose` argument that, if set to `True`, will output more granular information to
-the console to help troubleshoot issues.
-Defaults to `False`.
+  the console to help troubleshoot issues.
+  Defaults to `False`.
 - All of the runner functions accept a `quiet` argument that, if set to `True`, will suppress all output except for
-critical errors. Defaults to `False`.
+  critical errors. Defaults to `False`.
 
 ## TODO
 
