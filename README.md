@@ -8,14 +8,14 @@ The primary purpose of this tool is to automate the publishing of MXD files to M
 [YAML](https://en.wikipedia.org/wiki/YAML) configuration files to define the service folders, environments, services,
 service properties, data source mappings and more.
 
-Additional features include [cleaning up](#clean-up-services) outdated services and [generating reports](#generate-report-1) about existing services and the
+Additional features include [cleaning up](#clean-up-services) outdated services and [generating reports](#generate-reports) about existing services and the
 datasets they reference on ArcGIS Server.
 
 By default, configuration files are looked for in the `./config` subdirectory, and logs are written to `./logs`.
 
 You create one configuration file per service folder -- each service folder can contain many services.
 
-You must also create a [`userconfig.yml`](#userconfig-yml) file specifying the properties for each of your ArcGIS Server
+You must also create a [`userconfig.yml`](#userconfigyml) file specifying the properties for each of your ArcGIS Server
 instances.
 
 ## Requirements
@@ -32,7 +32,7 @@ instances.
   - Open a Windows command prompt in the local directory
   - Type `pip install -r requirements.txt`
   - Create a folder named `config` in the local directory
-  - Create a file named [`userconfig.yml`](#userconfig-yml) in the `config` folder, and populate it with a key named
+  - Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with a key named
   `ags_instances` containing a mapping of ArcGIS Server instance names and the following properties:
     - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
     - `token`: [ArcGIS Admin REST API token](http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/) (see the ["Generate an ArcGIS Admin REST API token"](#generate-token) example below for more details.)
@@ -115,7 +115,7 @@ ags_instances:
 
 ### Publish services
 
-1. Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmap-yml) configuration file:
+1. Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
 
     ```
     python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
@@ -143,26 +143,26 @@ ags_instances:
    ```
 
 **Note:** To clean up services, you must [generate ArcGIS Admin REST API tokens](#generate-token) for each ArcGIS Server
-instance defined in [`userconfig.yml`](#userconfig-yml).
+instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate reports
 
-1. <a name="generate-report-1"></a> Generate a report in CSV format of all the datasets referenced by all services within the `CouncilDistrictMap`
-   service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfig-yml):
+1. Generate a report in CSV format of all the datasets referenced by all services within the `CouncilDistrictMap`
+   service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
     python -c "import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap.csv')"
     ```
 
 2. Generate a report in CSV format of all the usages of a dataset named `BOUNDARIES.single_member_districts` within all
-   services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfig-yml):
+   services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
 
    ```
    python -c "import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts.csv')"
    ```
 
 **Note:** To generate reports, you must [generate ArcGIS Admin REST API tokens](#generate-token) for each ArcGIS Server
-instance defined in [`userconfig.yml`](#userconfig-yml).
+instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate token
 
@@ -173,7 +173,7 @@ instance defined in [`userconfig.yml`](#userconfig-yml).
    python -c "import ags_utils; print ags_utils.generate_token('coagisd1', expiration=43200)"
    ```
 
-**Note:** Copy and paste the generated token into [`userconfig.yml`](#userconfig-yml) as the value for the `token` key
+**Note:** Copy and paste the generated token into [`userconfig.yml`](#userconfigyml) as the value for the `token` key
 corresponding to the ArcGIS server instance it was generated on.
 
 ## Tips
