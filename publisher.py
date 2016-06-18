@@ -139,44 +139,42 @@ def publish_service(mxd, ags_instance, ags_connection, service_folder=None, serv
 
 def cleanup_config(config,
                    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                   included_instances=asterisk_tuple, excluded_instances=empty_tuple):
+                   included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                   config_dir=default_config_dir):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
         raise RuntimeError('No cleanable environments specified!')
 
     log.info('Cleaning environments: {}'.format(', '.join(env_names)))
     for env_name in env_names:
-        cleanup_env(config, env_name, included_instances, excluded_instances)
+        cleanup_env(config, env_name, included_instances, excluded_instances, config_dir)
 
 
-def cleanup_config_name(config_name, config_dir=default_config_dir,
-                        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                        included_instances=asterisk_tuple, excluded_instances=empty_tuple):
-    config = get_config(config_name, config_dir)
-    log.info('Cleaning config \'{}\''.format(config_name))
-    cleanup_config(config, included_envs, excluded_envs, included_instances, excluded_instances)
-
-
-def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_instances=empty_tuple):
+def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                config_dir=default_config_dir):
     env = config['environments'][env_name]
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     if len(ags_instances) == 0:
         raise RuntimeError('No cleanable instances specified!')
     for ags_instance in ags_instances:
-        cleanup_instance(ags_instance, config)
+        cleanup_instance(ags_instance, config, config_dir)
 
 
-def cleanup_instance(ags_instance, config):
+def cleanup_instance(ags_instance, config, config_dir=default_config_dir):
     configured_services = config['services']
     service_folder = config.get('service_folder')
     log.info('Cleaning up unused services on ArcGIS Server instance {}, service folder {}'
              .format(ags_instance, service_folder))
-    existing_services = list_services(ags_instance, service_folder)
+    userconfig = get_config('userconfig', config_dir)
+    ags_instance_props = userconfig['ags_instances'][ags_instance]
+    server_url = ags_instance_props['url']
+    token = ags_instance_props['token']
+    existing_services = list_services(server_url, token, service_folder)
     services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
     log.info('Removing {} services: {}'
-             .format(len(services_to_remove), [service['serviceName'] for service in services_to_remove]))
+             .format(len(services_to_remove), ', '.join((service['serviceName'] for service in services_to_remove))))
     for service in services_to_remove:
-        delete_service(ags_instance, service['serviceName'], service_folder, service['type'])
+        delete_service(server_url, token, service['serviceName'], service_folder, service['type'])
 
 
 def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
@@ -188,13 +186,16 @@ def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empt
     ags_instances = superfilter(userconfig['ags_instances'].keys(), included_instances, excluded_instances)
     log.info('Finding dataset usages on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
     for ags_instance in ags_instances:
-        service_folders = list_service_folders(ags_instance)
+        ags_instance_props = userconfig['ags_instances'][ags_instance]
+        server_url = ags_instance_props['url']
+        token = ags_instance_props['token']
+        service_folders = list_service_folders(server_url, token)
         for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-            for service in list_services(ags_instance, service_folder):
+            for service in list_services(server_url, token, service_folder):
                 service_name = service['serviceName']
                 service_type = service['type']
                 if superfilter((service_name,), included_services, excluded_services):
-                    for dataset_path in list_service_workspaces(ags_instance, service_name, service_folder, service_type):
+                    for dataset_path in list_service_workspaces(server_url, token, service_name, service_folder, service_type):
                         dataset_name = os.path.basename(dataset_path)
                         if superfilter((dataset_name,), included_datasets, excluded_datasets):
                             yield (ags_instance, service_folder, service_name, service_type, dataset_name, dataset_path)

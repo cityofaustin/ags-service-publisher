@@ -5,11 +5,10 @@ from logging_io import setup_logger
 log = setup_logger(__name__)
 
 def modify_sddraft(sddraft, xpath_pairs=None):
-    log.info('Modifying service definition draft file: {}'.format(sddraft))
+    log.debug('Modifying service definition draft file: {}'.format(sddraft))
     if not xpath_pairs:
         log.warn('No XPath Key/Value pairs specified, aborting...')
         return
-    log.debug('Parsing service definition file: {}'.format(sddraft))
     tree = ElementTree.parse(sddraft)
     for xpath, value in xpath_pairs.iteritems():
         log.debug('Searching for elements matching XPath expression: {}'.format(xpath))

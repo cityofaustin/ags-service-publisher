@@ -7,13 +7,13 @@ from logging_io import setup_logger
 log = setup_logger(__name__)
 
 def list_mxds_in_folder(mxd_dir):
-    log.info('Listing MXDs in folder: {}'.format(mxd_dir))
+    log.debug('Listing MXDs in folder: {}'.format(mxd_dir))
     return map(lambda x: os.path.abspath(os.path.join(mxd_dir, x)),
                filter(lambda x: x.endswith('.mxd'), os.listdir(mxd_dir)))
 
 
 def get_unique_data_sources(mxd_paths):
-    log.info('Getting unique data sources for MXD paths: {}'.format(mxd_paths))
+    log.debug('Getting unique data sources for MXD paths: {}'.format(mxd_paths))
     data_sources = []
     for mxd_path in mxd_paths:
         mxd = arcpy.mapping.MapDocument(mxd_path)
@@ -26,11 +26,11 @@ def get_unique_data_sources(mxd_paths):
 
 
 def get_data_sources(mxd):
-    log.info('Getting data sources for MXD: {}'.format(mxd.filePath))
+    log.debug('Getting data sources for MXD: {}'.format(mxd.filePath))
     layers = arcpy.mapping.ListLayers(mxd)
     for layer in layers:
         if layer.supports('workspacePath'):
-            log.info('Layer name: {}, Dataset name: {}, Workspace path: {}'
+            log.debug('Layer name: {}, Dataset name: {}, Workspace path: {}'
                      .format(layer.name, layer.datasetName, layer.workspacePath))
             yield layer.workspacePath
 
