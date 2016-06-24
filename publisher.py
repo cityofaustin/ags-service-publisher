@@ -20,7 +20,9 @@ def publish_config(config, config_dir,
                    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
                    included_services=asterisk_tuple, excluded_services=empty_tuple,
-                   cleanup_services=False):
+                   cleanup_services=False,
+                   service_prefix='',
+                   service_suffix=''):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
         raise RuntimeError('No publishable environments specified!')
@@ -29,24 +31,28 @@ def publish_config(config, config_dir,
     user_config = get_config('userconfig', config_dir)
     for env_name in env_names:
         publish_env(config, env_name, user_config, included_instances, excluded_instances, included_services,
-                    excluded_services, cleanup_services)
+                    excluded_services, cleanup_services, service_prefix, service_suffix)
 
 
 def publish_config_name(config_name, config_dir=default_config_dir,
                         included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
                         included_services=asterisk_tuple, excluded_services=empty_tuple,
-                        cleanup_services=False):
+                        cleanup_services=False,
+                        service_prefix='',
+                        service_suffix=''):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
     publish_config(config, config_dir, included_envs, excluded_envs, included_instances, excluded_instances,
-                   included_services, excluded_services, cleanup_services)
+                   included_services, excluded_services, cleanup_services, service_prefix, service_suffix)
 
 
 def publish_env(config, env_name, user_config,
                 included_instances=asterisk_tuple, excluded_instances=empty_tuple,
                 included_services=asterisk_tuple, excluded_services=empty_tuple,
-                cleanup_services=False):
+                cleanup_services=False,
+                service_prefix='',
+                service_suffix=''):
     env = config['environments'][env_name]
     mxd_dir = env['mxd_dir']
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
@@ -82,7 +88,8 @@ def publish_env(config, env_name, user_config,
             for ags_instance in ags_instances:
                 ags_props = user_config['ags_instances'][ags_instance]
                 ags_connection = ags_props['ags_connection']
-                publish_service(mxd, ags_instance, ags_connection, service_folder, service_properties)
+                publish_service(mxd, ags_instance, ags_connection, service_folder, service_properties, service_prefix,
+                                service_suffix)
             mxd.save()
         finally:
             del mxd
@@ -92,9 +99,10 @@ def publish_env(config, env_name, user_config,
             cleanup_instance(ags_instance, config)
 
 
-def publish_service(mxd, ags_instance, ags_connection, service_folder=None, service_properties=None):
+def publish_service(mxd, ags_instance, ags_connection, service_folder=None, service_properties=None, service_prefix='',
+                    service_suffix=''):
     mxd_path = mxd.filePath
-    service_name = os.path.splitext(os.path.basename(mxd_path))[0]
+    service_name = '{}{}{}'.format(service_prefix, os.path.splitext(os.path.basename(mxd_path))[0], service_suffix)
 
     log.info(
         'Publishing MXD {} to ArcGIS Server instance {}, Connection File: {}, Service: {}, Folder: {}'

@@ -17,6 +17,8 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
                              included_instances=asterisk_tuple, excluded_instances=empty_tuple,
                              included_services=asterisk_tuple, excluded_services=empty_tuple,
                              cleanup_services=False,
+                             service_prefix='',
+                             service_suffix='',
                              config_dir=default_config_dir,
                              log_to_file=True,
                              log_dir=default_log_dir,
@@ -39,7 +41,8 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
         log_file_handler = setup_file_log_handler(root_logger, config_name, log_dir) if log_to_file else None
         try:
             publisher.publish_config(config, config_dir, included_envs, excluded_envs, included_instances,
-                                     excluded_instances, included_services, excluded_services, cleanup_services)
+                                     excluded_instances, included_services, excluded_services, cleanup_services,
+                                     service_prefix, service_suffix)
         except Exception:
             log.exception('An error occurred while publishing config \'{}\''.format(config_name))
             raise
