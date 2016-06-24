@@ -26,7 +26,7 @@ def setup_console_log_handler(logger=None, verbose=False):
 
 
 def setup_file_log_handler(logger=None, config_name=None, log_dir=default_log_dir):
-    log_file_format = '%(asctime)s|%(levelname)s|%(module)s|%(message)s'
+    log_file_format = '%(asctime)s|%(levelname)s|%(processName)s|%(module)s|%(funcName)s|%(message)s'
     log_file_datetime_format = '%Y%m%d-%H%M%S'
     log_file_level = 'DEBUG'
     log_file_name = (config_name + '_' if config_name else '') + datetime.datetime.now().strftime(log_file_datetime_format) + '.log'

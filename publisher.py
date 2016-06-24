@@ -1,8 +1,8 @@
 import datetime
 import os
-from shutil import copyfile
-
-import arcpy
+import tempfile
+import multiprocessing
+from shutil import copyfile, rmtree
 
 from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
 from config_io import get_config, default_config_dir
@@ -11,8 +11,7 @@ from extrafilters import superfilter
 from helpers import snake_case_to_camel_case, asterisk_tuple, empty_tuple
 from logging_io import setup_logger
 from sddraft_io import modify_sddraft
-
-arcpy.env.overwriteOutput = True
+from mplog import open_queue, logged_call
 
 log = setup_logger(__name__)
 
@@ -72,36 +71,42 @@ def publish_env(config, env_name, user_config,
         'Publishing environment: {}, service folder: {}, ArcGIS Server instances: {}'
             .format(env_name, service_folder, ', '.join(ags_instances))
     )
-
-    for service_name, service_properties in services.iteritems() if hasattr(services, 'iteritems') \
-            else ((service, default_service_properties) for service in services):
-        mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
-        if mxd_dir_to_copy_from:
-            mxd_to_copy_from = os.path.abspath(os.path.join(mxd_dir_to_copy_from, service_name) + '.mxd')
-            log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
-            copyfile(mxd_to_copy_from, mxd_path)
-        mxd = arcpy.mapping.MapDocument(mxd_path)
-        try:
+    with open_queue() as log_queue:
+        for service_name, service_properties in services.iteritems() if hasattr(services, 'iteritems') \
+                else ((service, default_service_properties) for service in services):
+            mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
+            if mxd_dir_to_copy_from:
+                mxd_to_copy_from = os.path.abspath(os.path.join(mxd_dir_to_copy_from, service_name) + '.mxd')
+                log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
+                copyfile(mxd_to_copy_from, mxd_path)
             if data_source_mappings:
-                update_data_sources(mxd, data_source_mappings)
-                mxd.save()
+                proc = multiprocessing.Process(target=logged_call, args=(log_queue, update_data_sources, mxd_path, data_source_mappings))
+                proc.start()
+                proc.join()
+                del proc
+            procs = list()
             for ags_instance in ags_instances:
                 ags_props = user_config['ags_instances'][ags_instance]
                 ags_connection = ags_props['ags_connection']
-                publish_service(mxd, ags_instance, ags_connection, service_folder, service_properties, service_prefix,
-                                service_suffix)
-            mxd.save()
-        finally:
-            del mxd
+                proc = multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
+                                                                         ags_instance, ags_connection, service_folder,
+                                                                         service_properties, service_prefix,
+                                                                         service_suffix))
+                proc.start()
+                procs.append(proc)
+            for proc in procs:
+                proc.join()
 
     if cleanup_services:
         for ags_instance in ags_instances:
             cleanup_instance(ags_instance, config)
 
 
-def publish_service(mxd, ags_instance, ags_connection, service_folder=None, service_properties=None, service_prefix='',
+def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None, service_properties=None, service_prefix='',
                     service_suffix=''):
-    mxd_path = mxd.filePath
+    import arcpy
+    arcpy.env.overwriteOutput = True
+
     service_name = '{}{}{}'.format(service_prefix, os.path.splitext(os.path.basename(mxd_path))[0], service_suffix)
 
     log.info(
@@ -117,32 +122,37 @@ def publish_service(mxd, ags_instance, ags_connection, service_folder=None, serv
             xpath_spec = "./Configurations/SVCConfiguration/Definition/Props/PropertyArray/PropertySetProperty[Key='{}']/Value"
             xpath_pairs[xpath_spec.format(snake_case_to_camel_case(key))] = str(value)
 
-    sddraft = os.path.abspath(os.path.join(os.path.dirname(mxd_path), service_name + '.sddraft'))
-    sd = os.path.abspath(os.path.join(os.path.dirname(mxd_path), service_name + '.sd'))
-    arcpy.mapping.CreateMapSDDraft(mxd, sddraft, service_name, 'FROM_CONNECTION_FILE', ags_connection, False,
-                                   service_folder)
-    modify_sddraft(sddraft, xpath_pairs)
-    analysis = arcpy.mapping.AnalyzeForSD(sddraft)
-    for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
-        log.info('----' + key.upper() + '---')
-        items = analysis[key]
-        for ((message, code), layerlist) in items.iteritems():
-            log_method('    {} (CODE {:05d})'.format(message, code))
-            log_method('       applies to:')
-            for layer in layerlist:
-                log_method('           {}'.format(layer.name))
-            log_method('')
+    tempdir = tempfile.mkdtemp()
+    try:
+        sddraft = os.path.join(tempdir, service_name + '.sddraft')
+        sd = os.path.join(tempdir, service_name + '.sd')
+        mxd = arcpy.mapping.MapDocument(mxd_path)
+        arcpy.mapping.CreateMapSDDraft(mxd, sddraft, service_name, 'FROM_CONNECTION_FILE', ags_connection, False,
+                                       service_folder)
+        modify_sddraft(sddraft, xpath_pairs)
+        analysis = arcpy.mapping.AnalyzeForSD(sddraft)
+        for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
+            log.info('----' + key.upper() + '---')
+            items = analysis[key]
+            for ((message, code), layerlist) in items.iteritems():
+                log_method('    {} (CODE {:05d})'.format(message, code))
+                log_method('       applies to:')
+                for layer in layerlist:
+                    log_method('           {}'.format(layer.name))
+                log_method('')
 
-    if analysis['errors'] == {}:
-        arcpy.StageService_server(sddraft, sd)
-        arcpy.UploadServiceDefinition_server(sd, ags_connection)
-        log.info('Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
-                 .format(service_folder, service_name, ags_instance, datetime.datetime.now()))
-    else:
-        error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
-            .format(service_folder, service_name, datetime.datetime.now())
-        log.error(error_message)
-        raise RuntimeError(error_message, analysis['errors'])
+        if analysis['errors'] == {}:
+            arcpy.StageService_server(sddraft, sd)
+            arcpy.UploadServiceDefinition_server(sd, ags_connection)
+            log.info('Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
+                     .format(service_folder, service_name, ags_instance, datetime.datetime.now()))
+        else:
+            error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
+                .format(service_folder, service_name, datetime.datetime.now())
+            log.error(error_message)
+            raise RuntimeError(error_message, analysis['errors'])
+    finally:
+        rmtree(tempdir, ignore_errors=True)
 
 
 def cleanup_config(config,

@@ -1,7 +1,5 @@
 import os
 
-import arcpy
-
 from logging_io import setup_logger
 
 log = setup_logger(__name__)
@@ -16,17 +14,16 @@ def get_unique_data_sources(mxd_paths):
     log.debug('Getting unique data sources for MXD paths: {}'.format(mxd_paths))
     data_sources = []
     for mxd_path in mxd_paths:
-        mxd = arcpy.mapping.MapDocument(mxd_path)
-        try:
-            data_sources.extend(get_data_sources(mxd))
-        finally:
-            del mxd
+        data_sources.extend(get_data_sources(mxd_path))
     unique_data_sources = list(set(data_sources))
     return unique_data_sources
 
 
-def get_data_sources(mxd):
-    log.debug('Getting data sources for MXD: {}'.format(mxd.filePath))
+def get_data_sources(mxd_path):
+    log.debug('Getting data sources for MXD: {}'.format(mxd_path))
+
+    import arcpy
+    mxd = arcpy.mapping.MapDocument(mxd_path)
     layers = arcpy.mapping.ListLayers(mxd)
     for layer in layers:
         if layer.supports('workspacePath'):
@@ -35,8 +32,11 @@ def get_data_sources(mxd):
             yield layer.workspacePath
 
 
-def update_data_sources(mxd, data_source_mappings):
-    log.info('Updating data sources in MXD: {}'.format(mxd.filePath))
+def update_data_sources(mxd_path, data_source_mappings):
+    log.info('Updating data sources in MXD: {}'.format(mxd_path))
+
+    import arcpy
+    mxd = arcpy.mapping.MapDocument(mxd_path)
     layers = arcpy.mapping.ListLayers(mxd)
     for layer in layers:
         if layer.supports('workspacePath'):
@@ -49,3 +49,4 @@ def update_data_sources(mxd, data_source_mappings):
             except KeyError:
                 log.warn('No match for layer {}, dataset name: {}, workspace path: {}'
                          .format(layer.name, layer.datasetName, layer.workspacePath))
+    mxd.save()
