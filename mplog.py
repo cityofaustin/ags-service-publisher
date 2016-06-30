@@ -1,4 +1,4 @@
-# From https://gist.github.com/schlamar/7003737
+# Adapted from https://gist.github.com/schlamar/7003737
 
 import contextlib
 import multiprocessing
@@ -51,13 +51,17 @@ def logged_call(log_queue, func, *args, **kwargs):
     for logger in logging.Logger.manager.loggerDict.values():
         if not isinstance(logger, logging.PlaceHolder):
             logger.__class__ = MPLogger
-    func(*args, **kwargs)
+    try:
+        func(*args, **kwargs)
+    except Exception as e:
+        logging.exception(e)
 
 
 @contextlib.contextmanager
 def open_queue():
     log_queue = multiprocessing.Queue()
     daemon_thread = threading.Thread(target=daemon, args=(log_queue,))
+    daemon_thread.daemon = True
     daemon_thread.start()
     yield log_queue
     log_queue.put(None)
