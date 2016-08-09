@@ -155,7 +155,7 @@ environments:
    `CouncilDistrictMap.yml` configuration file:
 
    ```
-   python -c "import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])
+   python -c "import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])"
    ```
 
 **Note:** To clean up services, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
