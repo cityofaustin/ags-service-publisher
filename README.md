@@ -15,8 +15,8 @@ By default, configuration files are looked for in the `./config` subdirectory, a
 
 You create one configuration file per service folder -- each service folder can contain many services.
 
-You must also create a [`userconfig.yml`](#userconfigyml) file specifying the properties for each of your ArcGIS Server
-instances.
+You must also create a [`userconfig.yml`](#userconfigyml) file specifying your environments and the properties for each
+of your ArcGIS Server instances.
 
 ## Requirements
 
@@ -32,12 +32,17 @@ instances.
   2. Open a Windows command prompt in the local directory
   3. Type `pip install -r requirements.txt`
   4. Create a folder named `config` in the local directory
-  5. Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with a key named
-    `ags_instances` containing a mapping of ArcGIS Server instance names and the following properties:
-     - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
-     - `ags_connection`: Path to an `.ags` connection file for each instance.
-     - `token` (optional): [ArcGIS Admin REST API token][4] (see the ["Generate tokens"](#generate-tokens) section below
-        for more details)
+  5. Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with an
+     `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and `prod`.
+     Within each environment, specify the following keys:
+       - `ags_instances`: contains a mapping of ArcGIS Server instance names, each having the following properties:
+         - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
+         - `ags_connection`: Path to an `.ags` connection file for each instance.
+         - `token` (optional): [ArcGIS Admin REST API token][4] (see the ["Generate tokens"](#generate-tokens) section below
+            for more details)
+       - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
+         [import](#import-sde-connection-files) to each of
+         the instances in that environment
   6. Create additional configuration files for each service folder you want to publish.
      - MXD files are matched based on the names of the services, for example `CouncilDistrictsFill` maps to
        `CouncilDistrictsFill.mxd`.
@@ -85,31 +90,40 @@ environments:
 ###`userconfig.yml`:
 
 ``` yml
-ags_instances:
-  coagisd1:
-    url: http://coagisd1.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd1-pughl (admin).ags
-  coagisd2:
-    url: http://coagisd2.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd2-pughl (admin).ags
-  coagist1:
-    url: http://coagist1.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagist1-pughl (admin).ags
-  coagist2:
-    url: http://coagist2.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagist2-pughl (admin).ags
-  coagisp1:
-    url: http://coagisp1.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp1-pughl (admin).ags
-  coagisp2:
-    url: http://coagisp2.austintexas.gov
-    token: <automatically set by runner.generate_tokens>
-    ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp2-pughl (admin).ags
+environments:
+  dev:
+    ags_instances:
+      coagisd1:
+        url: http://coagisd1.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd1-pughl (admin).ags
+      coagisd2:
+        url: http://coagisd2.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd2-pughl (admin).ags
+    sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections
+  test:
+    ags_instances:
+      coagist1:
+        url: http://coagist1.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagist1-pughl (admin).ags
+      coagist2:
+        url: http://coagist2.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagist2-pughl (admin).ags
+    sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections
+  prod:
+    ags_instances:
+      coagisp1:
+        url: http://coagisp1.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp1-pughl (admin).ags
+      coagisp2:
+        url: http://coagisp2.austintexas.gov
+        token: <automatically set by runner.generate_tokens>
+        ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp2-pughl (admin).ags
+    sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections
 ```
 
 ## Example usage
@@ -184,6 +198,17 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
      - You can limit which ArcGIS Server instances are used with the `included_instances` and
        `excluded_instances` arguments.
      - This will automatically update [`userconfig.yml`](#userconfigyml) with the generated tokens.
+
+### Import SDE connection files
+
+- Import all SDE connection files whose name contains `COUNCILDISTRICTMAP_SERVICE` to each of the ArcGIS Server instances in the
+`dev` environment specified within [`userconfig.yml`](#userconfigyml):
+
+   ```
+   python -c "import runner; runner.batch_import_connection_files(['*COUNCILDISTRICTMAP_SERVICE*'], included_envs=['dev'])"
+   ```
+   **Note:** This looks for `.sde` files located within the directory specified by `sde_connections_dir` for each
+   environment specified within [`userconfig.yml`](#userconfigyml).
 
 ## Tips
 

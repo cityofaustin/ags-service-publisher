@@ -2,7 +2,7 @@ import collections
 import contextlib
 import gc
 import inspect
-
+import os
 import sys
 
 
@@ -16,6 +16,11 @@ def snake_case_to_sentence_case(input_string):
 
 def format_arguments(args):
     return ', '.join([snake_case_to_sentence_case(str(key)) + ': ' + str(value) for key, value in args.iteritems()])
+
+
+def list_files_in_dir(directory, ext=''):
+    return map(lambda x: os.path.abspath(os.path.join(directory, x)),
+               filter(lambda x: x.endswith(ext), os.listdir(directory)))
 
 
 # Adapted from http://stackoverflow.com/a/4506081

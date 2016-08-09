@@ -1,13 +1,17 @@
-import os
-
+from helpers import list_files_in_dir
 from logging_io import setup_logger
 
 log = setup_logger(__name__)
 
+
 def list_mxds_in_folder(mxd_dir):
     log.debug('Listing MXDs in folder: {}'.format(mxd_dir))
-    return map(lambda x: os.path.abspath(os.path.join(mxd_dir, x)),
-               filter(lambda x: x.endswith('.mxd'), os.listdir(mxd_dir)))
+    return list_files_in_dir(mxd_dir, ext='.mxd')
+
+
+def list_sde_connection_files_in_folder(sde_connections_dir):
+    log.debug('Listing SDE connection files in folder: {}'.format(sde_connections_dir))
+    return list_files_in_dir(sde_connections_dir, ext='.sde')
 
 
 def get_unique_data_sources(mxd_paths):

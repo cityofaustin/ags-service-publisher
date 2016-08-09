@@ -1,3 +1,4 @@
+import os
 import getpass
 from xml.etree import ElementTree
 
@@ -108,3 +109,11 @@ def prompt_for_credentials(username=None, password=None, ags_instance=None):
                                    .format(' for ArcGIS Server instance {}'
                                         .format(ags_instance) if ags_instance else ''))
     return username, password
+
+
+def import_sde_connection_file(ags_connection_file, sde_connection_file):
+    log.info('Importing SDE connection file {} to ArcGIS Server connection file {})'.format(sde_connection_file, ags_connection_file))
+
+    import arcpy
+    data_store_name = os.path.splitext(os.path.basename(sde_connection_file))[0]
+    arcpy.AddDataStoreItem(ags_connection_file, "DATABASE", data_store_name, sde_connection_file, sde_connection_file)

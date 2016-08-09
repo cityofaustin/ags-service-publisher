@@ -1,12 +1,13 @@
-import os
 import csv
 import logging
+import os
 
 import publisher
-from ags_utils import prompt_for_credentials, generate_token
+from ags_utils import prompt_for_credentials, generate_token, import_sde_connection_file
 from config_io import get_config, get_configs, set_config, default_config_dir
-from helpers import asterisk_tuple, empty_tuple, file_or_stdout
+from datasources import list_sde_connection_files_in_folder
 from extrafilters import superfilter
+from helpers import asterisk_tuple, empty_tuple, file_or_stdout
 from logging_io import setup_logger, setup_console_log_handler, setup_file_log_handler, default_log_dir
 
 log = setup_logger(__name__)
@@ -91,6 +92,7 @@ def run_dataset_usages_report(included_datasets=asterisk_tuple, excluded_dataset
                               included_services=asterisk_tuple, excluded_services=empty_tuple,
                               included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
                               included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                              included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                               output_filename=None,
                               output_format='csv',
                               verbose=False,
@@ -109,6 +111,7 @@ def run_dataset_usages_report(included_datasets=asterisk_tuple, excluded_dataset
                                                        included_services, excluded_services,
                                                        included_service_folders, excluded_service_folders,
                                                        included_instances, excluded_instances,
+                                                       included_envs, excluded_envs,
                                                        config_dir)
 
         return sorted(found_datasets, key=lambda x: (x[4], x[1], x[2], x[0]))
@@ -117,7 +120,8 @@ def run_dataset_usages_report(included_datasets=asterisk_tuple, excluded_dataset
         report_data = get_report_data()
 
         with file_or_stdout(output_filename, 'wb') as csvfile:
-            header_row = ('AGS Instance', 'Service Folder', 'Service Name', 'Service Type', 'Dataset Name', 'Dataset Path')
+            header_row = ('AGS Instance', 'Service Folder', 'Service Name', 'Service Type', 'Dataset Name',
+                          'Dataset Path')
             rows = report_data
             csvwriter = csv.writer(csvfile, lineterminator='\n')
             csvwriter.writerow(header_row)
@@ -130,6 +134,7 @@ def run_dataset_usages_report(included_datasets=asterisk_tuple, excluded_dataset
 
 
 def generate_tokens(included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                     username=None,
                     password=None,
                     reuse_credentials=False,
@@ -143,20 +148,57 @@ def generate_tokens(included_instances=asterisk_tuple, excluded_instances=empty_
         logging.getLogger('requests').setLevel(logging.WARNING)
     log.debug('Using config directory: {}'.format(config_dir))
 
-    userconfig = get_config('userconfig')
-    ags_instances = superfilter(userconfig['ags_instances'].keys(), included_instances, excluded_instances)
-
-    log.info('Refreshing tokens for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
+    user_config = get_config('userconfig')
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
     if reuse_credentials:
         username, password = prompt_for_credentials(username, password)
     needs_save = False
-    for ags_instance in ags_instances:
-        ags_instance_props = userconfig['ags_instances'][ags_instance]
-        new_token = generate_token(ags_instance_props['url'], username, password, expiration, ags_instance)
-        if new_token:
-            ags_instance_props['token'] = new_token
-            if not needs_save:
-                needs_save = True
-    if needs_save:
-        set_config(userconfig, 'userconfig', config_dir)
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
 
+        log.info('Refreshing tokens for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            new_token = generate_token(ags_instance_props['url'], username, password, expiration, ags_instance)
+            if new_token:
+                ags_instance_props['token'] = new_token
+                if not needs_save:
+                    needs_save = True
+    if needs_save:
+        set_config(user_config, 'userconfig', config_dir)
+
+
+def batch_import_sde_connection_files(included_connection_files=asterisk_tuple, excluded_connection_files=empty_tuple,
+                                      included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                                      included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+                                      verbose=False,
+                                      quiet=False,
+                                      config_dir=default_config_dir):
+    if not quiet:
+        setup_console_log_handler(root_logger, verbose)
+    if not verbose:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+    log.debug('Using config directory: {}'.format(config_dir))
+
+    user_config = get_config('userconfig')
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        sde_connections_dir = env['sde_connections_dir']
+        sde_connection_files = superfilter(
+            [os.path.splitext(os.path.basename(sde_connection_file))[0] for sde_connection_file in
+             list_sde_connection_files_in_folder(sde_connections_dir)],
+            included_connection_files, excluded_connection_files)
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info('Importing SDE connection files for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            ags_connection = ags_instance_props['ags_connection']
+            for sde_connection_file in sde_connection_files:
+                import_sde_connection_file(ags_connection,
+                                           os.path.join(sde_connections_dir, sde_connection_file + '.sde'))

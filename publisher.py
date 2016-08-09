@@ -1,7 +1,7 @@
 import datetime
+import multiprocessing
 import os
 import tempfile
-import multiprocessing
 from shutil import copyfile, rmtree
 
 from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
@@ -10,8 +10,8 @@ from datasources import update_data_sources
 from extrafilters import superfilter
 from helpers import snake_case_to_camel_case, asterisk_tuple, empty_tuple
 from logging_io import setup_logger
-from sddraft_io import modify_sddraft
 from mplog import open_queue, logged_call
+from sddraft_io import modify_sddraft
 
 log = setup_logger(__name__)
 
@@ -78,6 +78,8 @@ def publish_env(config, env_name, user_config,
             if mxd_dir_to_copy_from:
                 mxd_to_copy_from = os.path.abspath(os.path.join(mxd_dir_to_copy_from, service_name) + '.mxd')
                 log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
+                if not os.path.isdir(mxd_dir):
+                    os.makedirs(mxd_dir)
                 copyfile(mxd_to_copy_from, mxd_path)
             if data_source_mappings:
                 proc = multiprocessing.Process(target=logged_call, args=(log_queue, update_data_sources, mxd_path, data_source_mappings))
@@ -86,8 +88,8 @@ def publish_env(config, env_name, user_config,
                 del proc
             procs = list()
             for ags_instance in ags_instances:
-                ags_props = user_config['ags_instances'][ags_instance]
-                ags_connection = ags_props['ags_connection']
+                ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+                ags_connection = ags_instance_props['ags_connection']
                 proc = multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
                                                                          ags_instance, ags_connection, service_folder,
                                                                          service_properties, service_prefix,
@@ -99,7 +101,7 @@ def publish_env(config, env_name, user_config,
 
     if cleanup_services:
         for ags_instance in ags_instances:
-            cleanup_instance(ags_instance, config)
+            cleanup_instance(ags_instance, env_name, config, user_config)
 
 
 def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None, service_properties=None, service_prefix='',
@@ -174,17 +176,17 @@ def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_in
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     if len(ags_instances) == 0:
         raise RuntimeError('No cleanable instances specified!')
+    user_config = get_config('userconfig', config_dir)
     for ags_instance in ags_instances:
-        cleanup_instance(ags_instance, config, config_dir)
+        cleanup_instance(ags_instance, env_name, config, user_config)
 
 
-def cleanup_instance(ags_instance, config, config_dir=default_config_dir):
+def cleanup_instance(ags_instance, env_name, config, user_config):
     configured_services = config['services']
     service_folder = config.get('service_folder')
-    log.info('Cleaning up unused services on ArcGIS Server instance {}, service folder {}'
-             .format(ags_instance, service_folder))
-    userconfig = get_config('userconfig', config_dir)
-    ags_instance_props = userconfig['ags_instances'][ags_instance]
+    log.info('Cleaning up unused services on environment {}, ArcGIS Server instance {}, service folder {}'
+             .format(env_name, ags_instance, service_folder))
+    ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
     server_url = ags_instance_props['url']
     token = ags_instance_props['token']
     existing_services = list_services(server_url, token, service_folder)
@@ -199,21 +201,29 @@ def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empt
                         included_services=asterisk_tuple, excluded_services=empty_tuple,
                         included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
                         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+                        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
                         config_dir=default_config_dir):
-    userconfig = get_config('userconfig', config_dir)
-    ags_instances = superfilter(userconfig['ags_instances'].keys(), included_instances, excluded_instances)
-    log.info('Finding dataset usages on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
-    for ags_instance in ags_instances:
-        ags_instance_props = userconfig['ags_instances'][ags_instance]
-        server_url = ags_instance_props['url']
-        token = ags_instance_props['token']
-        service_folders = list_service_folders(server_url, token)
-        for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-            for service in list_services(server_url, token, service_folder):
-                service_name = service['serviceName']
-                service_type = service['type']
-                if superfilter((service_name,), included_services, excluded_services):
-                    for dataset_path in list_service_workspaces(server_url, token, service_name, service_folder, service_type):
-                        dataset_name = os.path.basename(dataset_path)
-                        if superfilter((dataset_name,), included_datasets, excluded_datasets):
-                            yield (ags_instance, service_folder, service_name, service_type, dataset_name, dataset_path)
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info('Finding dataset usages on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if superfilter((service_name,), included_services, excluded_services):
+                        for dataset_path in list_service_workspaces(server_url, token, service_name, service_folder,
+                                                                    service_type):
+                            dataset_name = os.path.basename(dataset_path)
+                            if superfilter((dataset_name,), included_datasets, excluded_datasets):
+                                yield (ags_instance, service_folder, service_name, service_type, dataset_name,
+                                       dataset_path)
