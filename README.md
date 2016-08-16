@@ -32,8 +32,9 @@ of your ArcGIS Server instances.
   2. Open a Windows command prompt in the local directory
   3. Type `pip install -r requirements.txt`
   4. Create a folder named `config` in the local directory
-  5. Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with an
+  5. Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with a top-level
      `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and `prod`.
+
      Within each environment, specify the following keys:
        - `ags_instances`: contains a mapping of ArcGIS Server instance names, each having the following properties:
          - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
@@ -41,12 +42,41 @@ of your ArcGIS Server instances.
          - `token` (optional): [ArcGIS Admin REST API token][4] (see the ["Generate tokens"](#generate-tokens) section below
             for more details)
        - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
-         [import](#import-sde-connection-files) to each of
-         the instances in that environment
-  6. Create additional configuration files for each service folder you want to publish.
-     - MXD files are matched based on the names of the services, for example `CouncilDistrictsFill` maps to
+         [import](#import-sde-connection-files) to each of the instances in that environment
+  6. Create additional configuration files for each service folder you want to publish. Configuration files must have a
+     `.yml` extension.
+     - Create a top-level `service_folder` key with the name of the service folder as its value.
+     - Create a top-level `services` key with a list of services to publish, with each service name preceded by a hyphen
+       (`-`) and a space.
+       - MXD files are matched based on the names of the services, for example `CouncilDistrictsFill` maps to
        `CouncilDistrictsFill.mxd`.
-     - Configuration files must have a `.yml` extension.
+     - Create a top-level `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and
+       `prod`.
+
+       Within each environment, specify the following keys:
+       - `ags_instances`: List of ArcGIS Server instances to publish to.
+       - `data_source_mappings` (optional): Mappings of source data paths to destination data paths (e.g. development
+          environment SDE connection files to test environment SDE connection files)
+       - `mxd_dir`: Directory containing the MXD files to publish
+       - `mxd_dir_to_copy_from` (optional): Directory containing MXD files to copy into `mxd_dir` prior to mapping data
+          sources and publishing
+     - You can set service properties (e.g. isolation level, number of instances per container, cache directory, etc.).
+       - To specify service properties, create key/value pairs for the properties to set and the values to set them to.
+         Keys are matched to service property names case-insensitively, and any underscores are stripped so that you can
+         use `snake_case` to specify them; for example `instances_per_container` will match the `InstancesPerContainer`
+         property.
+       - Service properties may be set at either at the service folder level or at the service level:
+         - Service folder level:
+           - Create a top-level `default_service_properties` key and then specify the service properties as above.
+         - Service level:
+           - Within the top-level `services` key, for each service you want to set properties for, end the service name
+             with a colon (`:`) to denote that it is a mapping object, and then specify the service properties as above.
+             Ensure you indent the service properties by exactly 4 spaces relative to the hyphen (`-`) before the
+             service name.
+
+          **Note:** If both service folder level and service level properties are specified, service level properties
+          override service folder level properties when there is a conflict.
+
      - See the [example configuration files](#example-configuration-files) section below for more details.
 
 ## Example configuration files
@@ -57,10 +87,12 @@ of your ArcGIS Server instances.
 service_folder: CouncilDistrictMap
 services:
   - CouncilDistrictMap
-  - CouncilDistrictsFill
+  - CouncilDistrictsFill:
+      instances_per_container: 4 # example of specifying a service-level property; note the level of indentation
 default_service_properties:
   isolation: low
   instances_per_container: 8
+  cache_dir: D:\arcgisserver\directories\arcgiscache
 environments:
   dev:
     ags_instances:

@@ -1,19 +1,22 @@
+import collections
 import datetime
 import multiprocessing
 import os
 import tempfile
+from copy import deepcopy
 from shutil import copyfile, rmtree
 
 from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
 from config_io import get_config, default_config_dir
 from datasources import update_data_sources
 from extrafilters import superfilter
-from helpers import snake_case_to_camel_case, asterisk_tuple, empty_tuple
+from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger
 from mplog import open_queue, logged_call
 from sddraft_io import modify_sddraft
 
 log = setup_logger(__name__)
+
 
 def publish_config(config, config_dir,
                    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
@@ -61,6 +64,9 @@ def publish_env(config, env_name, user_config,
     data_source_mappings = env.get('data_source_mappings', {})
     mxd_dir_to_copy_from = env.get('mxd_dir_to_copy_from')
 
+    if not default_service_properties:
+        log.debug('No default service properties specified')
+
     if len(ags_instances) == 0:
         raise RuntimeError('No publishable instances specified!')
 
@@ -69,11 +75,25 @@ def publish_env(config, env_name, user_config,
 
     log.info(
         'Publishing environment: {}, service folder: {}, ArcGIS Server instances: {}'
-            .format(env_name, service_folder, ', '.join(ags_instances))
+        .format(env_name, service_folder, ', '.join(ags_instances))
     )
     with open_queue() as log_queue:
-        for service_name, service_properties in services.iteritems() if hasattr(services, 'iteritems') \
-                else ((service, default_service_properties) for service in services):
+        for service in services:
+            is_mapping = isinstance(service, collections.Mapping)
+            service_name = service.keys()[0] if is_mapping else service
+            merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
+            if is_mapping:
+                service_properties = service.items()[0][1]
+                if service_properties:
+                    log.debug('Overriding default service properties for service {}'.format(service_name))
+                    merged_service_properties.update(service_properties)
+                else:
+                    log.warn(
+                        'No service-level properties specified for service {} even though it was specified as a mapping'
+                        .format(service_name)
+                    )
+            else:
+                log.debug('No service-level properties specified for service {}'.format(service_name))
             mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
             if mxd_dir_to_copy_from:
                 mxd_to_copy_from = os.path.abspath(os.path.join(mxd_dir_to_copy_from, service_name) + '.mxd')
@@ -82,7 +102,10 @@ def publish_env(config, env_name, user_config,
                     os.makedirs(mxd_dir)
                 copyfile(mxd_to_copy_from, mxd_path)
             if data_source_mappings:
-                proc = multiprocessing.Process(target=logged_call, args=(log_queue, update_data_sources, mxd_path, data_source_mappings))
+                proc = multiprocessing.Process(
+                    target=logged_call,
+                    args=(log_queue, update_data_sources, mxd_path, data_source_mappings)
+                )
                 proc.start()
                 proc.join()
                 del proc
@@ -92,7 +115,7 @@ def publish_env(config, env_name, user_config,
                 ags_connection = ags_instance_props['ags_connection']
                 proc = multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
                                                                          ags_instance, ags_connection, service_folder,
-                                                                         service_properties, service_prefix,
+                                                                         merged_service_properties, service_prefix,
                                                                          service_suffix))
                 proc.start()
                 procs.append(proc)
@@ -104,8 +127,8 @@ def publish_env(config, env_name, user_config,
             cleanup_instance(ags_instance, env_name, config, user_config)
 
 
-def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None, service_properties=None, service_prefix='',
-                    service_suffix=''):
+def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None, service_properties=None,
+                    service_prefix='', service_suffix=''):
     import arcpy
     arcpy.env.overwriteOutput = True
 
@@ -113,25 +136,20 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
 
     log.info(
         'Publishing MXD {} to ArcGIS Server instance {}, Connection File: {}, Service: {}, Folder: {}'
-            .format(mxd_path, ags_instance, ags_connection, service_name, service_folder)
+        .format(mxd_path, ags_instance, ags_connection, service_name, service_folder)
     )
 
-    xpath_pairs = None
-
-    if service_properties:
-        xpath_pairs = {}
-        for key, value in service_properties.iteritems():
-            xpath_spec = "./Configurations/SVCConfiguration/Definition/Props/PropertyArray/PropertySetProperty[Key='{}']/Value"
-            xpath_pairs[xpath_spec.format(snake_case_to_camel_case(key))] = str(value)
-
     tempdir = tempfile.mkdtemp()
+    log.debug('Temporary directory created: {}'.format(tempdir))
     try:
         sddraft = os.path.join(tempdir, service_name + '.sddraft')
         sd = os.path.join(tempdir, service_name + '.sd')
         mxd = arcpy.mapping.MapDocument(mxd_path)
+        log.debug('Creating SDDraft file: {}'.format(sddraft))
         arcpy.mapping.CreateMapSDDraft(mxd, sddraft, service_name, 'FROM_CONNECTION_FILE', ags_connection, False,
                                        service_folder)
-        modify_sddraft(sddraft, xpath_pairs)
+        modify_sddraft(sddraft, service_properties)
+        log.debug('Analyzing SDDraft file: {}'.format(sddraft))
         analysis = arcpy.mapping.AnalyzeForSD(sddraft)
         for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
             log.info('----' + key.upper() + '---')
@@ -144,7 +162,9 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
                 log_method('')
 
         if analysis['errors'] == {}:
+            log.debug('Staging SDDraft file: {} to SD file: {}'.format(sddraft, sd))
             arcpy.StageService_server(sddraft, sd)
+            log.debug('Uploading SD file: {} to AGS connection file: {}'.format(sd, ags_connection))
             arcpy.UploadServiceDefinition_server(sd, ags_connection)
             log.info('Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
                      .format(service_folder, service_name, ags_instance, datetime.datetime.now()))
@@ -154,6 +174,7 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
     finally:
+        log.debug('Cleaning up temporary directory: {}'.format(tempdir))
         rmtree(tempdir, ignore_errors=True)
 
 

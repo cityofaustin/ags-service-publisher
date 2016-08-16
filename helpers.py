@@ -7,11 +7,15 @@ import sys
 
 
 def snake_case_to_camel_case(input_string):
-    return ''.join(word.capitalize() for word in input_string.split('_'))
+    return ''.join((word if i == 0 else word.capitalize() for i, word in enumerate(input_string.split('_'))))
 
 
 def snake_case_to_sentence_case(input_string):
     return ' '.join(input_string.split('_')).capitalize()
+
+
+def snake_case_to_pascal_case(input_string):
+    return ''.join((word.capitalize() for word in input_string.split('_')))
 
 
 def format_arguments(args):
@@ -54,6 +58,7 @@ def file_or_stdout(file_name, mode='w'):
     else:
         with open(file_name, mode) as out_file:
             yield out_file
+
 
 empty_tuple = ()
 asterisk_tuple = ('*',)
