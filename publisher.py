@@ -32,8 +32,13 @@ def publish_config(config, config_dir,
     log.info('Publishing environments: {}'.format(', '.join(env_names)))
     user_config = get_config('userconfig', config_dir)
     for env_name in env_names:
-        publish_env(config, env_name, user_config, included_instances, excluded_instances, included_services,
-                    excluded_services, cleanup_services, service_prefix, service_suffix)
+        env = config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
+        if len(ags_instances) > 0:
+            publish_env(config, env_name, user_config, included_instances, excluded_instances, included_services,
+                        excluded_services, cleanup_services, service_prefix, service_suffix)
+        else:
+            log.warn('No publishable instances specified for environment {}'.format(env_name))
 
 
 def publish_config_name(config_name, config_dir=default_config_dir,
@@ -108,19 +113,32 @@ def publish_env(config, env_name, user_config,
                 )
                 proc.start()
                 proc.join()
+                if proc.exitcode != 0:
+                    raise RuntimeError('An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
+                                       .format(proc.name, proc.pid, mxd_path))
                 del proc
             procs = list()
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
-                proc = multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
-                                                                         ags_instance, ags_connection, service_folder,
-                                                                         merged_service_properties, service_prefix,
-                                                                         service_suffix))
-                proc.start()
+                proc = (multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
+                                                                          ags_instance, ags_connection, service_folder,
+                                                                          merged_service_properties, service_prefix,
+                                                                          service_suffix)), ags_instance)
+                proc[0].start()
                 procs.append(proc)
-            for proc in procs:
+            for proc, ags_instance in procs:
                 proc.join()
+
+            errors = list()
+            for proc, ags_instance in procs:
+                if proc.exitcode != 0:
+                    errors.append('An error occurred in subprocess {} (pid {}, exitcode {}) while publishing service {}/{} to AGS instance {}'
+                                  .format(proc.name, proc.pid, proc.exitcode, service_folder, service_name, ags_instance))
+            if len(errors) > 0:
+                log.error('One or more errors occurred while publishing service {}/{}, aborting.'
+                          .format(service_folder, service_name))
+                raise RuntimeError(errors)
 
     if cleanup_services:
         for ags_instance in ags_instances:
@@ -173,6 +191,10 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
                 .format(service_folder, service_name, datetime.datetime.now())
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
+    except:
+        log.exception('An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
+                      .format(service_folder, service_name, ags_instance))
+        raise
     finally:
         log.debug('Cleaning up temporary directory: {}'.format(tempdir))
         rmtree(tempdir, ignore_errors=True)

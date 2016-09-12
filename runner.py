@@ -44,7 +44,7 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
             publisher.publish_config(config, config_dir, included_envs, excluded_envs, included_instances,
                                      excluded_instances, included_services, excluded_services, cleanup_services,
                                      service_prefix, service_suffix)
-        except Exception:
+        except:
             log.exception('An error occurred while publishing config \'{}\''.format(config_name))
             raise
         finally:
@@ -80,7 +80,7 @@ def run_batch_cleanup_job(included_configs=asterisk_tuple, excluded_configs=empt
                                      included_envs, excluded_envs,
                                      included_instances, excluded_instances,
                                      config_dir)
-        except Exception:
+        except:
             log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
             raise
         finally:

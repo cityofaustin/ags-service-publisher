@@ -51,10 +51,7 @@ def logged_call(log_queue, func, *args, **kwargs):
     for logger in logging.Logger.manager.loggerDict.values():
         if not isinstance(logger, logging.PlaceHolder):
             logger.__class__ = MPLogger
-    try:
-        func(*args, **kwargs)
-    except Exception as e:
-        logging.exception(e)
+    func(*args, **kwargs)
 
 
 @contextlib.contextmanager
