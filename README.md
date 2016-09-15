@@ -66,15 +66,15 @@ of your ArcGIS Server instances.
          use `snake_case` to specify them; for example `instances_per_container` will match the `InstancesPerContainer`
          property.
          - Additionally, the following "special" service properties are recognized:
-           - `replace_service`: If set to `true`, specifies that any existing service is to be replaced. This can be
+            - `replace_service`: If set to `true`, specifies that any existing service is to be replaced. This can be
               useful to set if you find duplicate services with a timestamp suffix are being created on the server.
-           - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
-              [Generate Map Server Cache Tiling Scheme][5]. Used for specifying the tile scheme of cached
-              map services.
-           - `cache_tile_format`: Format for cached tile images, may be one of the following: `PNG`, `PNG8`, `PNG24`,
-             `PNG32`, `JPEG`, `MIXED`, `LERC`
-           - `compression_quality`: Compression quality for cached tile images, may be a number from `0` to `100`
-           - `keep_existing_cache`: Specifies that any existing cache is to be preserved, rather than overwritten.
+            - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
+              [Generate Map Server Cache Tiling Scheme][5] geoprocessing tool. Used for specifying the tile scheme of
+              cached map services.
+            - `cache_tile_format`: Format for cached tile images, may be one of the following: `PNG`, `PNG8`, `PNG24`,
+              `PNG32`, `JPEG`, `MIXED`, `LERC`
+            - `compression_quality`: Compression quality for cached tile images, may be a number from `0` to `100`
+            - `keep_existing_cache`: Specifies that any existing cache is to be preserved, rather than overwritten.
        - Service properties may be set at either at the service folder level or at the service level:
          - Service folder level:
            - Create a top-level `default_service_properties` key and then specify the service properties as above.
