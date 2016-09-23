@@ -83,6 +83,40 @@ def publish_env(config, env_name, user_config,
         .format(env_name, service_folder, ', '.join(ags_instances))
     )
     with open_queue() as log_queue:
+        source_mxd_info = {}
+        errors = []
+        if mxd_dir_to_copy_from:
+            for service in services:
+                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
+                source_mxd_info[service_name] = []
+                if isinstance(mxd_dir_to_copy_from, list):
+                    # If multiple MXD source folders are provided, look for the MXD in each source folder
+                    source_dirs = mxd_dir_to_copy_from
+                else:
+                    source_dirs = [mxd_dir_to_copy_from]
+                for source_dir in source_dirs:
+                    source_mxd = os.path.abspath(os.path.join(source_dir, service_name) + '.mxd')
+                    if os.path.isfile(source_mxd):
+                        source_mxd_info[service_name].append(source_mxd)
+            for service_name, source_mxd_paths in source_mxd_info.iteritems():
+                if len(source_mxd_paths) == 0:
+                    errors.append('- No source MXD found for service {}'.format(service_name))
+                elif len(source_mxd_paths) > 1:
+                    errors.append('- More than one source MXD found for service {}: \n{}'
+                                  .format(
+                                        service_name,
+                                        '\n'.join('  - {}'
+                                                  .format(source_mxd_path) for source_mxd_path in source_mxd_paths)))
+        else:
+            for service in services:
+                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
+                mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
+                if not os.path.exists(mxd_path):
+                    errors.append('- MXD {} does not exist!'.format(mxd_path))
+        if len(errors) > 0:
+            raise RuntimeError(
+                'One or more errors occurred while validating the {} environment for service folder {}:\n{}'
+                .format(env_name, service_folder, '\n'.join(errors)))
         for service in services:
             is_mapping = isinstance(service, collections.Mapping)
             service_name = service.keys()[0] if is_mapping else service
@@ -101,11 +135,13 @@ def publish_env(config, env_name, user_config,
                 log.debug('No service-level properties specified for service {}'.format(service_name))
             mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
             if mxd_dir_to_copy_from:
-                mxd_to_copy_from = os.path.abspath(os.path.join(mxd_dir_to_copy_from, service_name) + '.mxd')
+                mxd_to_copy_from = source_mxd_info[service_name][0]
                 log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
                 if not os.path.isdir(mxd_dir):
                     os.makedirs(mxd_dir)
                 copyfile(mxd_to_copy_from, mxd_path)
+            if not os.path.exists(mxd_path):
+                raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
             if data_source_mappings:
                 proc = multiprocessing.Process(
                     target=logged_call,

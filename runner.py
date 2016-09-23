@@ -46,6 +46,7 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
                                      service_prefix, service_suffix)
         except:
             log.exception('An error occurred while publishing config \'{}\''.format(config_name))
+            log.error('See the log file at {}'.format(log_file_handler.baseFilename))
             raise
         finally:
             if log_file_handler:
@@ -82,6 +83,7 @@ def run_batch_cleanup_job(included_configs=asterisk_tuple, excluded_configs=empt
                                      config_dir)
         except:
             log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
+            log.error('See the log file at {}'.format(log_file_handler.baseFilename))
             raise
         finally:
             if log_file_handler:

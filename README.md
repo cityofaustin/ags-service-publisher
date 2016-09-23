@@ -60,6 +60,8 @@ of your ArcGIS Server instances.
        - `mxd_dir`: Directory containing the MXD files to publish
        - `mxd_dir_to_copy_from` (optional): Directory containing MXD files to copy into `mxd_dir` prior to mapping data
           sources and publishing
+          - Can also be a list of multiple source directories. Each service may only have one corresponding MXD among
+            all of the source directories. Duplicates will result in an error.
      - You can set service properties (e.g. isolation level, number of instances per container, cache directory, etc.).
        - To specify service properties, create key/value pairs for the properties to set and the values to set them to.
          Keys are matched to service property names case-insensitively, and any underscores are stripped so that you can
