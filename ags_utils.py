@@ -5,6 +5,8 @@ from xml.etree import ElementTree
 import requests
 from requests.compat import urljoin
 
+from datasources import parse_database_from_service_string
+from helpers import split_quoted_string, unquote_string
 from logging_io import setup_logger
 
 log = setup_logger(__name__)
@@ -28,6 +30,7 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
     except:
         log.exception('An error occurred while generating token (URL: {}, user: {})'.format(server_url, username))
         raise
+
 
 def list_service_folders(server_url, token):
     log.debug('Listing service folders (URL: {})'.format(server_url))
@@ -68,7 +71,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
     if service_type == 'GeometryServer':
         log.warn('Unsupported service type {} for service {} in folder {}'
                  .format(service_type, service_name, service_folder))
-        return ()
+        return
     log.debug('Listing workspaces for service {} (URL: {}, Folder: {})'
              .format(service_name, server_url, service_folder))
     url = urljoin(server_url, '/'.join((part for part in (
@@ -79,7 +82,16 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         r = requests.get(url, {'token': token})
         assert (r.status_code == 200)
         data = r.text
-        return parse_datasets_from_service_manifest(data)
+        datasets = parse_datasets_from_service_manifest(data)
+        conn_props = parse_connection_properties_from_service_manifest(data)
+
+        for dataset in datasets:
+            yield (
+                dataset,
+                conn_props.get('USER', 'n/a'),
+                parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
+                conn_props.get('VERSION', 'n/a')
+            )
     except:
         log.exception('An error occurred while listing workspaces for service {}{}'
                       .format(service_folder, service_name))
@@ -106,11 +118,32 @@ def delete_service(server_url, token, service_name, service_folder=None, service
 
 
 def parse_datasets_from_service_manifest(data):
-    xpath = './Databases/SVCDatabase/Datasets/SVCDataset/OnPremisePath'
     tree = ElementTree.fromstring(data)
-    subelements = tree.findall(xpath)
+    datasets_xpath = './Databases/SVCDatabase/Datasets/SVCDataset/OnPremisePath'
+    subelements = tree.findall(datasets_xpath)
     for subelement in subelements:
         yield subelement.text
+
+
+def parse_connection_properties_from_service_manifest(data):
+    tree = ElementTree.fromstring(data)
+    conn_string_xpath = './Databases/SVCDatabase/OnServerConnectionString'
+    conn_string_element = tree.find(conn_string_xpath)
+    if conn_string_element is not None:
+        conn_string = conn_string_element.text
+        return parse_connection_string(conn_string)
+    else:
+        log.warn('No connection string element found!')
+        return {}
+
+
+def parse_connection_string(conn_string):
+    properties = {}
+
+    for pair in split_quoted_string(conn_string, ';'):
+        key, value = split_quoted_string(pair, '=')
+        properties[key] = unquote_string(value)
+    return properties
 
 
 def prompt_for_credentials(username=None, password=None, ags_instance=None):
@@ -138,7 +171,12 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
             data_store_name,
             sde_connection_file,
             sde_connection_file)
-    except:
-        log.exception('An error occurred while importing SDE connection file {} to ArcGIS Server connection file {})'
-                      .format(sde_connection_file, ags_connection_file))
-        raise
+    except StandardError as e:
+        if e.message == 'Client database entry is already registered.':
+            log.warn(e.message)
+        else:
+            log.exception(
+                'An error occurred while importing SDE connection file {} to ArcGIS Server connection file {})'
+                .format(sde_connection_file, ags_connection_file)
+            )
+            raise

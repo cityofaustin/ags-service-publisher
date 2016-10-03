@@ -7,8 +7,8 @@ from copy import deepcopy
 from shutil import copyfile, rmtree
 
 from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
-from config_io import get_config, default_config_dir
-from datasources import update_data_sources
+from config_io import get_config, get_configs, default_config_dir
+from datasources import update_data_sources, get_data_sources
 from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger
@@ -18,13 +18,17 @@ from sddraft_io import modify_sddraft
 log = setup_logger(__name__)
 
 
-def publish_config(config, config_dir,
-                   included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                   included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                   included_services=asterisk_tuple, excluded_services=empty_tuple,
-                   cleanup_services=False,
-                   service_prefix='',
-                   service_suffix=''):
+def publish_config(
+    config,
+    config_dir,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    cleanup_services=False,
+    service_prefix='',
+    service_suffix='',
+    warn_on_validation_errors=False
+):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
         raise RuntimeError('No publishable environments specified!')
@@ -35,31 +39,58 @@ def publish_config(config, config_dir,
         env = config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
         if len(ags_instances) > 0:
-            publish_env(config, env_name, user_config, included_instances, excluded_instances, included_services,
-                        excluded_services, cleanup_services, service_prefix, service_suffix)
+            publish_env(
+                config,
+                env_name,
+                user_config,
+                included_instances, excluded_instances,
+                included_services, excluded_services,
+                cleanup_services,
+                service_prefix,
+                service_suffix,
+                warn_on_validation_errors
+            )
         else:
             log.warn('No publishable instances specified for environment {}'.format(env_name))
 
 
-def publish_config_name(config_name, config_dir=default_config_dir,
-                        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                        included_services=asterisk_tuple, excluded_services=empty_tuple,
-                        cleanup_services=False,
-                        service_prefix='',
-                        service_suffix=''):
+def publish_config_name(
+    config_name,
+    config_dir=default_config_dir,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    cleanup_services=False,
+    service_prefix='',
+    service_suffix='',
+    warn_on_validation_errors=False
+):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
-    publish_config(config, config_dir, included_envs, excluded_envs, included_instances, excluded_instances,
-                   included_services, excluded_services, cleanup_services, service_prefix, service_suffix)
+    publish_config(
+        config,
+        config_dir,
+        included_envs, excluded_envs,
+        included_instances, excluded_instances,
+        included_services, excluded_services,
+        cleanup_services,
+        service_prefix,
+        service_suffix,
+        warn_on_validation_errors
+    )
 
 
-def publish_env(config, env_name, user_config,
-                included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                included_services=asterisk_tuple, excluded_services=empty_tuple,
-                cleanup_services=False,
-                service_prefix='',
-                service_suffix=''):
+def publish_env(
+    config,
+    env_name,
+    user_config,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    cleanup_services=False,
+    service_prefix='',
+    service_suffix='',
+    warn_on_validation_errors=False
+):
     env = config['environments'][env_name]
     mxd_dir = env['mxd_dir']
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
@@ -83,40 +114,14 @@ def publish_env(config, env_name, user_config,
         .format(env_name, service_folder, ', '.join(ags_instances))
     )
     with open_queue() as log_queue:
-        source_mxd_info = {}
-        errors = []
-        if mxd_dir_to_copy_from:
-            for service in services:
-                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
-                source_mxd_info[service_name] = []
-                if isinstance(mxd_dir_to_copy_from, list):
-                    # If multiple MXD source folders are provided, look for the MXD in each source folder
-                    source_dirs = mxd_dir_to_copy_from
-                else:
-                    source_dirs = [mxd_dir_to_copy_from]
-                for source_dir in source_dirs:
-                    source_mxd = os.path.abspath(os.path.join(source_dir, service_name) + '.mxd')
-                    if os.path.isfile(source_mxd):
-                        source_mxd_info[service_name].append(source_mxd)
-            for service_name, source_mxd_paths in source_mxd_info.iteritems():
-                if len(source_mxd_paths) == 0:
-                    errors.append('- No source MXD found for service {}'.format(service_name))
-                elif len(source_mxd_paths) > 1:
-                    errors.append('- More than one source MXD found for service {}: \n{}'
-                                  .format(
-                                        service_name,
-                                        '\n'.join('  - {}'
-                                                  .format(source_mxd_path) for source_mxd_path in source_mxd_paths)))
-        else:
-            for service in services:
-                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
-                mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
-                if not os.path.exists(mxd_path):
-                    errors.append('- MXD {} does not exist!'.format(mxd_path))
+        mxd_info, errors = get_service_mxd_info(services, mxd_dir, mxd_dir_to_copy_from)
         if len(errors) > 0:
-            raise RuntimeError(
-                'One or more errors occurred while validating the {} environment for service folder {}:\n{}'
-                .format(env_name, service_folder, '\n'.join(errors)))
+            message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
+                .format(env_name, service_folder, '\n'.join(errors))
+            if warn_on_validation_errors:
+                log.warn(message)
+            else:
+                raise RuntimeError(message)
         for service in services:
             is_mapping = isinstance(service, collections.Mapping)
             service_name = service.keys()[0] if is_mapping else service
@@ -135,32 +140,52 @@ def publish_env(config, env_name, user_config,
                 log.debug('No service-level properties specified for service {}'.format(service_name))
             mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
             if mxd_dir_to_copy_from:
-                mxd_to_copy_from = source_mxd_info[service_name][0]
+                mxd_to_copy_from = mxd_info[service_name][0]
                 log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
                 if not os.path.isdir(mxd_dir):
                     os.makedirs(mxd_dir)
                 copyfile(mxd_to_copy_from, mxd_path)
-            if not os.path.exists(mxd_path):
+            if not os.path.isfile(mxd_path):
                 raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
             if data_source_mappings:
                 proc = multiprocessing.Process(
                     target=logged_call,
-                    args=(log_queue, update_data_sources, mxd_path, data_source_mappings)
+                    args=(
+                        log_queue,
+                        update_data_sources,
+                        mxd_path,
+                        data_source_mappings
+                    )
                 )
                 proc.start()
                 proc.join()
                 if proc.exitcode != 0:
-                    raise RuntimeError('An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
-                                       .format(proc.name, proc.pid, mxd_path))
+                    raise RuntimeError(
+                        'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
+                        .format(proc.name, proc.pid, mxd_path)
+                    )
                 del proc
             procs = list()
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
-                proc = (multiprocessing.Process(target=logged_call, args=(log_queue, publish_service, mxd_path,
-                                                                          ags_instance, ags_connection, service_folder,
-                                                                          merged_service_properties, service_prefix,
-                                                                          service_suffix)), ags_instance)
+                proc = (
+                    multiprocessing.Process(
+                        target=logged_call,
+                        args=(
+                            log_queue,
+                            publish_service,
+                            mxd_path,
+                            ags_instance,
+                            ags_connection,
+                            service_folder,
+                            merged_service_properties,
+                            service_prefix,
+                            service_suffix
+                        )
+                    ),
+                    ags_instance
+                )
                 proc[0].start()
                 procs.append(proc)
             for proc, ags_instance in procs:
@@ -169,8 +194,18 @@ def publish_env(config, env_name, user_config,
             errors = list()
             for proc, ags_instance in procs:
                 if proc.exitcode != 0:
-                    errors.append('An error occurred in subprocess {} (pid {}, exitcode {}) while publishing service {}/{} to AGS instance {}'
-                                  .format(proc.name, proc.pid, proc.exitcode, service_folder, service_name, ags_instance))
+                    errors.append(
+                        'An error occurred in subprocess {} (pid {}, exitcode {}) '
+                        'while publishing service {}/{} to AGS instance {}'
+                        .format(
+                            proc.name,
+                            proc.pid,
+                            proc.exitcode,
+                            service_folder,
+                            service_name,
+                            ags_instance
+                        )
+                    )
             if len(errors) > 0:
                 log.error('One or more errors occurred while publishing service {}/{}, aborting.'
                           .format(service_folder, service_name))
@@ -181,8 +216,15 @@ def publish_env(config, env_name, user_config,
             cleanup_instance(ags_instance, env_name, config, user_config)
 
 
-def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None, service_properties=None,
-                    service_prefix='', service_suffix=''):
+def publish_service(
+    mxd_path,
+    ags_instance,
+    ags_connection,
+    service_folder=None,
+    service_properties=None,
+    service_prefix='',
+    service_suffix=''
+):
     import arcpy
     arcpy.env.overwriteOutput = True
 
@@ -200,8 +242,15 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
         sd = os.path.join(tempdir, service_name + '.sd')
         mxd = arcpy.mapping.MapDocument(mxd_path)
         log.debug('Creating SDDraft file: {}'.format(sddraft))
-        arcpy.mapping.CreateMapSDDraft(mxd, sddraft, service_name, 'FROM_CONNECTION_FILE', ags_connection, False,
-                                       service_folder)
+        arcpy.mapping.CreateMapSDDraft(
+            mxd,
+            sddraft,
+            service_name,
+            'FROM_CONNECTION_FILE',
+            ags_connection,
+            False,
+            service_folder
+        )
         modify_sddraft(sddraft, service_properties)
         log.debug('Analyzing SDDraft file: {}'.format(sddraft))
         analysis = arcpy.mapping.AnalyzeForSD(sddraft)
@@ -236,10 +285,12 @@ def publish_service(mxd_path, ags_instance, ags_connection, service_folder=None,
         rmtree(tempdir, ignore_errors=True)
 
 
-def cleanup_config(config,
-                   included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                   included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                   config_dir=default_config_dir):
+def cleanup_config(
+    config,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    config_dir=default_config_dir
+):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
         raise RuntimeError('No cleanable environments specified!')
@@ -249,8 +300,12 @@ def cleanup_config(config,
         cleanup_env(config, env_name, included_instances, excluded_instances, config_dir)
 
 
-def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                config_dir=default_config_dir):
+def cleanup_env(
+    config,
+    env_name,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    config_dir=default_config_dir
+):
     env = config['environments'][env_name]
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     if len(ags_instances) == 0:
@@ -260,7 +315,12 @@ def cleanup_env(config, env_name, included_instances=asterisk_tuple, excluded_in
         cleanup_instance(ags_instance, env_name, config, user_config)
 
 
-def cleanup_instance(ags_instance, env_name, config, user_config):
+def cleanup_instance(
+    ags_instance,
+    env_name,
+    config,
+    user_config
+):
     configured_services = config['services']
     service_folder = config.get('service_folder')
     log.info('Cleaning up unused services on environment {}, ArcGIS Server instance {}, service folder {}'
@@ -276,12 +336,17 @@ def cleanup_instance(ags_instance, env_name, config, user_config):
         delete_service(server_url, token, service['serviceName'], service_folder, service['type'])
 
 
-def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
-                        included_services=asterisk_tuple, excluded_services=empty_tuple,
-                        included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
-                        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                        config_dir=default_config_dir):
+def find_dataset_usages(
+    included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    included_users=asterisk_tuple, excluded_users=empty_tuple,
+    included_databases=asterisk_tuple, excluded_databases=empty_tuple,
+    included_versions=asterisk_tuple, excluded_versions=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    config_dir=default_config_dir
+):
     user_config = get_config('userconfig', config_dir)
     env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
@@ -300,9 +365,149 @@ def find_dataset_usages(included_datasets=asterisk_tuple, excluded_datasets=empt
                     service_name = service['serviceName']
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
-                        for dataset_path in list_service_workspaces(server_url, token, service_name, service_folder,
-                                                                    service_type):
+                        for (
+                            dataset_path,
+                            user,
+                            database,
+                            version
+                        ) in list_service_workspaces(
+                            server_url,
+                            token,
+                            service_name,
+                            service_folder,
+                            service_type
+                        ):
                             dataset_name = os.path.basename(dataset_path)
-                            if superfilter((dataset_name,), included_datasets, excluded_datasets):
-                                yield (ags_instance, service_folder, service_name, service_type, dataset_name,
-                                       dataset_path)
+                            if (
+                                superfilter((dataset_name,), included_datasets, excluded_datasets) and
+                                superfilter((user,), included_users, excluded_users) and
+                                superfilter((database,), included_databases, excluded_databases) and
+                                superfilter((version,), included_versions, excluded_versions)
+                            ):
+                                yield (
+                                    ags_instance,
+                                    service_folder,
+                                    service_name,
+                                    service_type,
+                                    dataset_name,
+                                    user,
+                                    database,
+                                    version,
+                                    dataset_path
+                                )
+
+
+def find_mxd_data_sources(
+    included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+    included_users=asterisk_tuple, excluded_users=empty_tuple,
+    included_databases=asterisk_tuple, excluded_databases=empty_tuple,
+    included_versions=asterisk_tuple, excluded_versions=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    warn_on_validation_errors=False,
+    config_dir=default_config_dir
+):
+    for config_name, config in get_configs(included_configs, excluded_configs, config_dir).iteritems():
+        env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
+        services = superfilter(config['services'], included_services, excluded_services)
+        for env_name in env_names:
+            log.debug('Finding MXD data sources for config {}, environment {}'.format(config_name, env_name))
+            env = config['environments'][env_name]
+            mxd_dir_to_copy_from = env.get('mxd_dir_to_copy_from')
+            mxd_dir = env['mxd_dir']
+            mxd_info, errors = get_service_mxd_info(services, mxd_dir, mxd_dir_to_copy_from)
+            if len(errors) > 0:
+                message = 'One or more errors occurred while validating the {} environment for config name {}:\n{}' \
+                          .format(env_name, config_name, '\n'.join(errors))
+                if warn_on_validation_errors:
+                    log.warn(message)
+                else:
+                    raise RuntimeError(message)
+            for service in services:
+                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
+                for mxd_path in mxd_info[service_name]:
+                    for (
+                        layer_name,
+                        dataset_name,
+                        workspace_path,
+                        user,
+                        database,
+                        version
+                    ) in get_data_sources(mxd_path):
+                        if (
+                            superfilter((dataset_name,), included_datasets, excluded_datasets) and
+                            superfilter((user,), included_users, excluded_users) and
+                            superfilter((database,), included_databases, excluded_databases) and
+                            superfilter((version,), included_versions, excluded_versions)
+                        ):
+                            yield (
+                                config_name,
+                                env_name,
+                                service_name,
+                                mxd_path,
+                                layer_name,
+                                dataset_name,
+                                user,
+                                database,
+                                version,
+                                workspace_path
+                            )
+
+
+def get_service_mxd_info(services, primary_mxd_dir, staging_mxd_dir):
+    log.debug(
+        'Getting MXD info for services {}, primary MXD directory: {}, staging MXD directory {}'
+        .format(services, primary_mxd_dir, staging_mxd_dir)
+    )
+
+    mxd_info = {}
+    errors = []
+
+    if staging_mxd_dir:
+        if isinstance(staging_mxd_dir, list):
+            # If multiple MXD staging folders are provided, look for the MXD in each staging folder
+            staging_dirs = staging_mxd_dir
+        else:
+            staging_dirs = (staging_mxd_dir,)
+        for staging_mxd_dir in staging_dirs:
+            log.debug('Finding staging MXDs in directory: {}'.format(staging_mxd_dir))
+            for service in services:
+                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
+                staging_mxd = os.path.abspath(os.path.join(staging_mxd_dir, service_name) + '.mxd')
+                if os.path.isfile(staging_mxd):
+                    log.debug('Staging MXD found: {}'.format(staging_mxd))
+                    if service_name in mxd_info:
+                        mxd_info[service_name].append(staging_mxd)
+                    else:
+                        mxd_info[service_name] = [staging_mxd]
+                else:
+                    log.debug('Staging MXD missing: {}'.format(staging_mxd))
+        for service_name, staging_mxd_paths in mxd_info.iteritems():
+            if len(staging_mxd_paths) == 0:
+                errors.append('- No staging MXD found for service {}'.format(service_name))
+            elif len(staging_mxd_paths) > 1:
+                errors.append(
+                    '- More than one staging MXD found for service {}: \n{}'
+                    .format(
+                        service_name,
+                        '\n'.join('  - {}'.format(staging_mxd_path) for staging_mxd_path in staging_mxd_paths)
+                    )
+                )
+
+    if primary_mxd_dir:
+        log.debug('Finding primary MXDs in directory: {}'.format(primary_mxd_dir))
+        for service in services:
+            service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
+            primary_mxd = os.path.abspath(os.path.join(primary_mxd_dir, service_name) + '.mxd')
+            if os.path.isfile(primary_mxd):
+                log.debug('Primary MXD found: {}'.format(primary_mxd))
+                if service_name in mxd_info:
+                    mxd_info[service_name].append(primary_mxd)
+                else:
+                    mxd_info[service_name] = [primary_mxd]
+            else:
+                log.debug('Primary MXD missing: {}'.format(primary_mxd))
+                errors.append('- Primary MXD {} for service {} does not exist!'.format(primary_mxd, service_name))
+
+    return mxd_info, errors

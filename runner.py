@@ -13,18 +13,22 @@ from logging_io import setup_logger, setup_console_log_handler, setup_file_log_h
 log = setup_logger(__name__)
 root_logger = setup_logger()
 
-def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=empty_tuple,
-                             included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                             included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                             included_services=asterisk_tuple, excluded_services=empty_tuple,
-                             cleanup_services=False,
-                             service_prefix='',
-                             service_suffix='',
-                             config_dir=default_config_dir,
-                             log_to_file=True,
-                             log_dir=default_log_dir,
-                             verbose=False,
-                             quiet=False):
+
+def run_batch_publishing_job(
+    included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    cleanup_services=False,
+    service_prefix='',
+    service_suffix='',
+    config_dir=default_config_dir,
+    log_to_file=True,
+    log_dir=default_log_dir,
+    verbose=False,
+    quiet=False,
+    warn_on_validation_errors=False
+):
     if not quiet:
         setup_console_log_handler(root_logger, verbose)
     if not verbose:
@@ -41,9 +45,17 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
     for config_name, config in configs.iteritems():
         log_file_handler = setup_file_log_handler(root_logger, config_name, log_dir) if log_to_file else None
         try:
-            publisher.publish_config(config, config_dir, included_envs, excluded_envs, included_instances,
-                                     excluded_instances, included_services, excluded_services, cleanup_services,
-                                     service_prefix, service_suffix)
+            publisher.publish_config(
+                config,
+                config_dir,
+                included_envs, excluded_envs,
+                included_instances, excluded_instances,
+                included_services, excluded_services,
+                cleanup_services,
+                service_prefix,
+                service_suffix,
+                warn_on_validation_errors
+            )
         except:
             log.exception('An error occurred while publishing config \'{}\''.format(config_name))
             log.error('See the log file at {}'.format(log_file_handler.baseFilename))
@@ -53,14 +65,16 @@ def run_batch_publishing_job(included_configs=asterisk_tuple, excluded_configs=e
                 root_logger.removeHandler(log_file_handler)
 
 
-def run_batch_cleanup_job(included_configs=asterisk_tuple, excluded_configs=empty_tuple,
-                          included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                          included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                          config_dir=default_config_dir,
-                          log_to_file=True,
-                          log_dir=default_log_dir,
-                          verbose=False,
-                          quiet=False):
+def run_batch_cleanup_job(
+    included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    config_dir=default_config_dir,
+    log_to_file=True,
+    log_dir=default_log_dir,
+    verbose=False,
+    quiet=False
+):
     if not quiet:
         setup_console_log_handler(root_logger, verbose)
     if not verbose:
@@ -77,10 +91,12 @@ def run_batch_cleanup_job(included_configs=asterisk_tuple, excluded_configs=empt
     for config_name, config in configs.iteritems():
         log_file_handler = setup_file_log_handler(root_logger, config_name, log_dir) if log_to_file else None
         try:
-            publisher.cleanup_config(config,
-                                     included_envs, excluded_envs,
-                                     included_instances, excluded_instances,
-                                     config_dir)
+            publisher.cleanup_config(
+                config,
+                included_envs, excluded_envs,
+                included_instances, excluded_instances,
+                config_dir
+            )
         except:
             log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
             log.error('See the log file at {}'.format(log_file_handler.baseFilename))
@@ -90,60 +106,167 @@ def run_batch_cleanup_job(included_configs=asterisk_tuple, excluded_configs=empt
                 root_logger.removeHandler(log_file_handler)
 
 
-def run_dataset_usages_report(included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
-                              included_services=asterisk_tuple, excluded_services=empty_tuple,
-                              included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
-                              included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                              included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                              output_filename=None,
-                              output_format='csv',
-                              verbose=False,
-                              quiet=False,
-                              config_dir=default_config_dir):
+def run_dataset_usages_report(
+    included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    included_users=asterisk_tuple, excluded_users=empty_tuple,
+    included_databases=asterisk_tuple, excluded_databases=empty_tuple,
+    included_versions=asterisk_tuple, excluded_versions=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    output_filename=None,
+    output_format='csv',
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
     if not quiet:
         setup_console_log_handler(root_logger, verbose)
     if not verbose:
         logging.getLogger('requests').setLevel(logging.WARNING)
 
-    log.info('Generating dataset usages report')
+    log.info(
+        'Generating dataset usages report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename else ''
+        )
+    )
     log.debug('Using config directory: {}'.format(config_dir))
 
     def get_report_data():
-        found_datasets = publisher.find_dataset_usages(included_datasets, excluded_datasets,
-                                                       included_services, excluded_services,
-                                                       included_service_folders, excluded_service_folders,
-                                                       included_instances, excluded_instances,
-                                                       included_envs, excluded_envs,
-                                                       config_dir)
+        found_datasets = publisher.find_dataset_usages(
+            included_datasets, excluded_datasets,
+            included_users, excluded_users,
+            included_databases, excluded_databases,
+            included_versions, excluded_versions,
+            included_services, excluded_services,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_envs, excluded_envs,
+            config_dir
+        )
 
         return sorted(found_datasets, key=lambda x: (x[4], x[1], x[2], x[0]))
 
     if output_format == 'csv':
         report_data = get_report_data()
 
-        with file_or_stdout(output_filename, 'wb') as csvfile:
-            header_row = ('AGS Instance', 'Service Folder', 'Service Name', 'Service Type', 'Dataset Name',
-                          'Dataset Path')
+        with file_or_stdout(output_filename, 'wb') as csv_file:
+            header_row = (
+                'AGS Instance',
+                'Service Folder',
+                'Service Name',
+                'Service Type',
+                'Dataset Name',
+                'User',
+                'Database',
+                'Version',
+                'Dataset Path'
+            )
             rows = report_data
-            csvwriter = csv.writer(csvfile, lineterminator='\n')
-            csvwriter.writerow(header_row)
-            csvwriter.writerows(rows)
+            csv_writer = csv.writer(csv_file, lineterminator='\n')
+            csv_writer.writerow(header_row)
+            csv_writer.writerows(rows)
     else:
         raise RuntimeError('Unsupported output format: {}'.format(output_format))
-    log.info('Successfully generated dataset usages report{}'
-             .format(': {}'.format(os.path.abspath(output_filename))
-                     if output_filename and os.path.isfile(output_filename) else ''))
+
+    log.info(
+        'Successfully generated dataset usages report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename and os.path.isfile(output_filename)
+            else ''
+        )
+    )
 
 
-def generate_tokens(included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                    username=None,
-                    password=None,
-                    reuse_credentials=False,
-                    expiration=15,
-                    verbose=False,
-                    quiet=False,
-                    config_dir=default_config_dir):
+def run_mxd_data_sources_report(
+    included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+    included_users=asterisk_tuple, excluded_users=empty_tuple,
+    included_databases=asterisk_tuple, excluded_databases=empty_tuple,
+    included_versions=asterisk_tuple, excluded_versions=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    output_filename=None,
+    output_format='csv',
+    warn_on_errors=False,
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
+    if not quiet:
+        setup_console_log_handler(root_logger, verbose)
+    if not verbose:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+
+    log.info(
+        'Generating MXD data sources report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename else ''
+        )
+    )
+    log.debug('Using config directory: {}'.format(config_dir))
+
+    def get_report_data():
+        return publisher.find_mxd_data_sources(
+            included_configs, excluded_configs,
+            included_users, excluded_users,
+            included_databases, excluded_databases,
+            included_versions, excluded_versions,
+            included_services, excluded_services,
+            included_envs, excluded_envs,
+            included_datasets, excluded_datasets,
+            warn_on_errors,
+            config_dir
+        )
+
+    if output_format == 'csv':
+        report_data = get_report_data()
+
+        with file_or_stdout(output_filename, 'wb') as csv_file:
+            header_row = (
+                'Config',
+                'Environment',
+                'Service Name',
+                'MXD Path',
+                'Layer Name',
+                'Dataset Name',
+                'User',
+                'Database',
+                'Version',
+                'Workspace Path'
+            )
+            rows = report_data
+            csv_writer = csv.writer(csv_file, lineterminator='\n')
+            csv_writer.writerow(header_row)
+            csv_writer.writerows(rows)
+    else:
+        raise RuntimeError('Unsupported output format: {}'.format(output_format))
+
+    log.info(
+        'Successfully generated MXD data sources report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename and os.path.isfile(output_filename) else ''
+        )
+    )
+
+
+def generate_tokens(
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    username=None,
+    password=None,
+    reuse_credentials=False,
+    expiration=15,
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
     if not quiet:
         setup_console_log_handler(root_logger, verbose)
     if not verbose:
@@ -173,12 +296,14 @@ def generate_tokens(included_instances=asterisk_tuple, excluded_instances=empty_
         set_config(user_config, 'userconfig', config_dir)
 
 
-def batch_import_sde_connection_files(included_connection_files=asterisk_tuple, excluded_connection_files=empty_tuple,
-                                      included_instances=asterisk_tuple, excluded_instances=empty_tuple,
-                                      included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-                                      verbose=False,
-                                      quiet=False,
-                                      config_dir=default_config_dir):
+def batch_import_sde_connection_files(
+    included_connection_files=asterisk_tuple, excluded_connection_files=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
     if not quiet:
         setup_console_log_handler(root_logger, verbose)
     if not verbose:
@@ -193,14 +318,20 @@ def batch_import_sde_connection_files(included_connection_files=asterisk_tuple, 
         env = user_config['environments'][env_name]
         sde_connections_dir = env['sde_connections_dir']
         sde_connection_files = superfilter(
-            [os.path.splitext(os.path.basename(sde_connection_file))[0] for sde_connection_file in
-             list_sde_connection_files_in_folder(sde_connections_dir)],
-            included_connection_files, excluded_connection_files)
+            [
+                os.path.splitext(os.path.basename(sde_connection_file))[0] for
+                sde_connection_file in
+                list_sde_connection_files_in_folder(sde_connections_dir)
+            ],
+            included_connection_files, excluded_connection_files
+        )
         ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
         log.info('Importing SDE connection files for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
         for ags_instance in ags_instances:
             ags_instance_props = env['ags_instances'][ags_instance]
             ags_connection = ags_instance_props['ags_connection']
             for sde_connection_file in sde_connection_files:
-                import_sde_connection_file(ags_connection,
-                                           os.path.join(sde_connections_dir, sde_connection_file + '.sde'))
+                import_sde_connection_file(
+                    ags_connection,
+                    os.path.join(sde_connections_dir, sde_connection_file + '.sde')
+                )

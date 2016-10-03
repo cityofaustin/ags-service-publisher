@@ -18,6 +18,34 @@ def snake_case_to_pascal_case(input_string):
     return ''.join((word.capitalize() for word in input_string.split('_')))
 
 
+def split_quoted_string(input_string, delimiter):
+    parts = []
+    quoted = False
+    part = ''
+    length = len(input_string)
+    for i, char in enumerate(input_string):
+        if i == length - 1:
+            part += char
+            parts.append(part)
+            break
+        if not quoted and char == delimiter:
+            parts.append(part)
+            part = ''
+        elif not quoted and char == '"':
+            quoted = True
+            part += char
+        elif quoted and char == '"':
+            quoted = False
+            part += char
+        else:
+            part += char
+    return parts
+
+
+def unquote_string(input_string):
+    return input_string if not (input_string.startswith('"') and input_string.endswith('"')) else input_string[1:-1]
+
+
 def format_arguments(args):
     return ', '.join([snake_case_to_sentence_case(str(key)) + ': ' + str(value) for key, value in args.iteritems()])
 

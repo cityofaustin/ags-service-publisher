@@ -10,8 +10,10 @@ from logging_io import setup_logger
 
 log = setup_logger(__name__)
 
-default_config_dir = os.getenv('AGS_SERVICE_PUBLISHER_CONFIG_DIR',
-                               os.path.abspath(os.path.join(os.path.dirname(__file__), 'config')))
+default_config_dir = os.getenv(
+    'AGS_SERVICE_PUBLISHER_CONFIG_DIR',
+    os.path.abspath(os.path.join(os.path.dirname(__file__), 'config'))
+)
 
 
 def get_config(config_name, config_dir=default_config_dir):
@@ -19,12 +21,17 @@ def get_config(config_name, config_dir=default_config_dir):
     return read_config_from_file(get_config_file_path(config_name, config_dir))
 
 
-def get_configs(included_configs=asterisk_tuple, excluded_configs=empty_tuple,
-                config_dir=default_config_dir):
+def get_configs(
+    included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+    config_dir=default_config_dir
+):
     if len(included_configs) == 1 and included_configs[0] == '*':
         log.debug('No config names specified, reading all configs in directory: {}'.format(config_dir))
-        config_names = [os.path.splitext(os.path.basename(config_file))[0] for config_file in superfilter(
-            os.listdir(config_dir), inclusion_patterns=('*.yml',), exclusion_patterns=('userconfig.yml',))]
+        config_names = [
+            os.path.splitext(os.path.basename(config_file))[0] for
+            config_file in
+            superfilter(os.listdir(config_dir), inclusion_patterns=('*.yml',), exclusion_patterns=('userconfig.yml',))
+        ]
     else:
         config_names = included_configs
     config_names = superfilter(config_names, included_configs, excluded_configs)

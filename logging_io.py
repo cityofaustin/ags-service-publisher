@@ -2,8 +2,10 @@ import datetime
 import logging
 import os
 
-default_log_dir = os.getenv('AGS_SERVICE_PUBLISHER_LOG_DIR',
-                            os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs')))
+default_log_dir = os.getenv(
+    'AGS_SERVICE_PUBLISHER_LOG_DIR',
+    os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
+)
 
 
 def setup_logger(namespace=None, level='DEBUG'):
@@ -29,7 +31,13 @@ def setup_file_log_handler(logger=None, config_name=None, log_dir=default_log_di
     log_file_format = '%(asctime)s|%(levelname)s|%(processName)s|%(module)s|%(funcName)s|%(message)s'
     log_file_datetime_format = '%Y%m%d-%H%M%S'
     log_file_level = 'DEBUG'
-    log_file_name = (config_name + '_' if config_name else '') + datetime.datetime.now().strftime(log_file_datetime_format) + '.log'
+    log_file_name = ''.join(
+        (
+            config_name + '_' if config_name else '',
+            datetime.datetime.now().strftime(log_file_datetime_format),
+            '.log'
+        )
+    )
     log_file_path = os.path.join(log_dir, log_file_name)
     if not logger:
         logger = setup_logger()
