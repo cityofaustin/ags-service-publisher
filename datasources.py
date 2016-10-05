@@ -61,7 +61,7 @@ def get_data_sources(mxd_path):
 
 def parse_database_from_service_string(database):
     if database != 'n/a':
-        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
+        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:\\;\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
         match = re.match(pattern, database)
         if match:
             database = match.group(1)
