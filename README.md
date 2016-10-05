@@ -77,6 +77,16 @@ of your ArcGIS Server instances.
               `PNG32`, `JPEG`, `MIXED`, `LERC`
             - `compression_quality`: Compression quality for cached tile images, may be a number from `0` to `100`
             - `keep_existing_cache`: Specifies that any existing cache is to be preserved, rather than overwritten.
+            - `feature_access`: A set of key/value pairs specifying the following feature service-related properties:
+              - `enabled`: Whether to enable feature access
+              - `capabilities`: A list of capabilities to enable on the feature service. Can be one or more of the
+                following:
+                - `query`
+                - `create`
+                - `update`
+                - `delete`
+                - `uploads`
+                - `editing`
        - Service properties may be set at either at the service folder level or at the service level:
          - Service folder level:
            - Create a top-level `default_service_properties` key and then specify the service properties as above.

@@ -19,6 +19,34 @@ def modify_sddraft(sddraft, service_properties=None):
     cache_tile_format = service_properties.get('cache_tile_format')
     compression_quality = service_properties.get('compression_quality')
     keep_existing_cache = service_properties.get('keep_existing_cache', False)
+    feature_access = service_properties.get('feature_access')
+
+    if feature_access:
+        log.debug('Feature access properties specified')
+        feature_access_enabled = feature_access.get('enabled', False)
+        feature_access_capabilities = feature_access.get('capabilities')
+
+        feature_access_xpath = "./Configurations/SVCConfiguration/Definition/Extensions/SVCExtension[TypeName='FeatureServer']"
+
+        feature_access_element = tree.find(feature_access_xpath)
+
+        if feature_access_element is not None:
+
+            if feature_access_enabled:
+                log.debug('Enabling feature access')
+                feature_access_element.find('Enabled').text = 'true'
+
+            if feature_access_capabilities:
+                log.debug('Setting feature access capabilities {}'.format(feature_access_capabilities))
+                feature_access_element.find("./Info/PropertyArray/PropertySetProperty[Key='WebCapabilities']/Value")\
+                    .text = ','.join(
+                        (
+                            capability.capitalize() for
+                            capability in feature_access_capabilities
+                        )
+                    )
+    else:
+        log.debug('No feature access properties specified')
 
     # Replace the service if specified
     if replace_service:

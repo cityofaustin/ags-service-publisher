@@ -79,7 +79,7 @@ def update_data_sources(mxd_path, data_source_mappings):
             try:
                 new_workspace_path = data_source_mappings[layer.workspacePath]
                 log.info(
-                    'Updating workspace path for layer {}, dataset name: {}'
+                    'Updating workspace path for layer {}, dataset name: {}, '
                     'current workspace path: {}, new workspace path: {}'
                     .format(layer.name, layer.datasetName, layer.workspacePath, new_workspace_path)
                 )
