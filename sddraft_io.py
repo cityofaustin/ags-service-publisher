@@ -26,33 +26,27 @@ def modify_sddraft(sddraft, service_properties=None):
         feature_access_enabled = feature_access.get('enabled', False)
         feature_access_capabilities = feature_access.get('capabilities')
 
-        feature_access_xpath = "./Configurations/SVCConfiguration/Definition/Extensions/SVCExtension[TypeName='FeatureServer']"
+        feature_access_element = tree.find(
+            "./Configurations/SVCConfiguration/Definition/Extensions/SVCExtension[TypeName='FeatureServer']"
+        )
 
-        feature_access_element = tree.find(feature_access_xpath)
+        if feature_access_enabled:
+            log.debug('Enabling feature access')
+            feature_access_element.find('Enabled').text = 'true'
 
-        if feature_access_element is not None:
-
-            if feature_access_enabled:
-                log.debug('Enabling feature access')
-                feature_access_element.find('Enabled').text = 'true'
-
-            if feature_access_capabilities:
-                log.debug('Setting feature access capabilities {}'.format(feature_access_capabilities))
-                feature_access_element.find("./Info/PropertyArray/PropertySetProperty[Key='WebCapabilities']/Value")\
-                    .text = ','.join(
-                        (
-                            capability.capitalize() for
-                            capability in feature_access_capabilities
-                        )
-                    )
+        if feature_access_capabilities:
+            feature_access_capabilities = [capability.capitalize() for capability in feature_access_capabilities]
+            log.debug('Setting feature access capabilities {}'.format(feature_access_capabilities))
+            feature_access_element.find(
+                "./Info/PropertyArray/PropertySetProperty[Key='WebCapabilities']/Value"
+            ).text = ','.join(feature_access_capabilities)
     else:
         log.debug('No feature access properties specified')
 
     # Replace the service if specified
     if replace_service:
         log.debug('Replacing existing service')
-        type_element = tree.find('Type')
-        type_element.text = 'esriServiceDefinitionType_Replacement'
+        tree.find('Type').text = 'esriServiceDefinitionType_Replacement'
     else:
         log.debug('Publishing new service')
 
@@ -87,7 +81,6 @@ def modify_sddraft(sddraft, service_properties=None):
         compression_quality_element.text = compression_quality
     else:
         log.debug('No cache image compression quality specified')
-
 
     # Keep the existing cache if specified
     if keep_existing_cache:
