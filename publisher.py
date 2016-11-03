@@ -92,13 +92,13 @@ def publish_env(
     warn_on_validation_errors=False
 ):
     env = config['environments'][env_name]
-    mxd_dir = env['mxd_dir']
+    source_dir = env['source_dir']
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     services = superfilter(config['services'], included_services, excluded_services)
-    service_folder = config.get('service_folder', os.path.basename(mxd_dir))
+    service_folder = config.get('service_folder', os.path.basename(source_dir))
     default_service_properties = config.get('default_service_properties')
     data_source_mappings = env.get('data_source_mappings', {})
-    mxd_dir_to_copy_from = env.get('mxd_dir_to_copy_from')
+    staging_dir = env.get('staging_dir')
 
     if not default_service_properties:
         log.debug('No default service properties specified')
@@ -114,7 +114,7 @@ def publish_env(
         .format(env_name, service_folder, ', '.join(ags_instances))
     )
     with open_queue() as log_queue:
-        mxd_info, errors = get_service_mxd_info(services, mxd_dir, mxd_dir_to_copy_from)
+        source_info, errors = get_source_info(services, source_dir, staging_dir, default_service_properties)
         if len(errors) > 0:
             message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
                 .format(env_name, service_folder, '\n'.join(errors))
@@ -122,49 +122,58 @@ def publish_env(
                 log.warn(message)
             else:
                 raise RuntimeError(message)
-        for service in services:
-            is_mapping = isinstance(service, collections.Mapping)
-            service_name = service.keys()[0] if is_mapping else service
-            merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
-            if is_mapping:
-                service_properties = service.items()[0][1]
-                if service_properties:
-                    log.debug('Overriding default service properties for service {}'.format(service_name))
-                    merged_service_properties.update(service_properties)
-                else:
+        for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+
+            if service_type == 'MapServer':
+                source_mxd_path = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
+                if staging_dir:
+                    staging_mxd_path = source_info[service_name][0]
+                    log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
+                    if not os.path.isdir(source_dir):
+                        log.warn('Creating source directory {}'.format(source_dir))
+                        os.makedirs(source_dir)
+                    copyfile(staging_mxd_path, source_mxd_path)
+                if not os.path.isfile(source_mxd_path):
+                    raise RuntimeError('Source MXD {} does not exist!'.format(source_mxd_path))
+                if data_source_mappings:
+                    proc = multiprocessing.Process(
+                        target=logged_call,
+                        args=(
+                            log_queue,
+                            update_data_sources,
+                            source_mxd_path,
+                            data_source_mappings
+                        )
+                    )
+                    proc.start()
+                    proc.join()
+                    if proc.exitcode != 0:
+                        raise RuntimeError(
+                            'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
+                            .format(proc.name, proc.pid, source_mxd_path)
+                        )
+                    del proc
+            if service_type == 'GeocodeServer':
+                source_locator_path = os.path.abspath(os.path.join(source_dir, service_name) + '.loc')
+                if staging_dir:
+                    staging_locator_path = source_info[service_name][0]
+                    log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
+                    if not os.path.isdir(source_dir):
+                        log.warn('Creating source directory {}'.format(source_dir))
+                        os.makedirs(source_dir)
+                    copyfile(staging_locator_path, source_locator_path)
+                    copyfile(staging_locator_path + '.xml', source_locator_path + '.xml')
+                    staging_locator_lox_path = os.path.splitext(staging_locator_path)[0] + '.lox'
+                    if os.path.isfile(staging_locator_lox_path):
+                        copyfile(staging_locator_lox_path, os.path.splitext(source_locator_path)[0] + '.lox')
+                if not os.path.isfile(source_locator_path):
+                    raise RuntimeError('Source locator file {} does not exist!'.format(source_locator_path))
+                if data_source_mappings:
                     log.warn(
-                        'No service-level properties specified for service {} even though it was specified as a mapping'
+                        'Data source mappings specified but are not supported with GeocodeServer services, skipping '
+                        'service {}.'
                         .format(service_name)
                     )
-            else:
-                log.debug('No service-level properties specified for service {}'.format(service_name))
-            mxd_path = os.path.abspath(os.path.join(mxd_dir, service_name) + '.mxd')
-            if mxd_dir_to_copy_from:
-                mxd_to_copy_from = mxd_info[service_name][0]
-                log.info('Copying {} to {}'.format(mxd_to_copy_from, mxd_path))
-                if not os.path.isdir(mxd_dir):
-                    os.makedirs(mxd_dir)
-                copyfile(mxd_to_copy_from, mxd_path)
-            if not os.path.isfile(mxd_path):
-                raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
-            if data_source_mappings:
-                proc = multiprocessing.Process(
-                    target=logged_call,
-                    args=(
-                        log_queue,
-                        update_data_sources,
-                        mxd_path,
-                        data_source_mappings
-                    )
-                )
-                proc.start()
-                proc.join()
-                if proc.exitcode != 0:
-                    raise RuntimeError(
-                        'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
-                        .format(proc.name, proc.pid, mxd_path)
-                    )
-                del proc
             procs = list()
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
@@ -175,11 +184,13 @@ def publish_env(
                         args=(
                             log_queue,
                             publish_service,
-                            mxd_path,
+                            service_name,
+                            service_type,
+                            source_dir,
                             ags_instance,
                             ags_connection,
                             service_folder,
-                            merged_service_properties,
+                            service_properties,
                             service_prefix,
                             service_suffix
                         )
@@ -207,8 +218,10 @@ def publish_env(
                         )
                     )
             if len(errors) > 0:
-                log.error('One or more errors occurred while publishing service {}/{}, aborting.'
-                          .format(service_folder, service_name))
+                log.error(
+                    'One or more errors occurred while publishing service {}/{}, aborting.'
+                    .format(service_folder, service_name)
+                )
                 raise RuntimeError(errors)
 
     if cleanup_services:
@@ -217,7 +230,9 @@ def publish_env(
 
 
 def publish_service(
-    mxd_path,
+    service_name,
+    service_type,
+    source_dir,
     ags_instance,
     ags_connection,
     service_folder=None,
@@ -228,11 +243,11 @@ def publish_service(
     import arcpy
     arcpy.env.overwriteOutput = True
 
-    service_name = '{}{}{}'.format(service_prefix, os.path.splitext(os.path.basename(mxd_path))[0], service_suffix)
+    service_name = '{}{}{}'.format(service_prefix, service_name, service_suffix)
 
     log.info(
-        'Publishing MXD {} to ArcGIS Server instance {}, Connection File: {}, Service: {}, Folder: {}'
-        .format(mxd_path, ags_instance, ags_connection, service_name, service_folder)
+        'Publishing {} service {} to ArcGIS Server instance {}, Connection File: {}, Service Folder: {}'
+        .format(service_type, service_name, ags_instance, ags_connection, service_folder)
     )
 
     tempdir = tempfile.mkdtemp()
@@ -240,20 +255,43 @@ def publish_service(
     try:
         sddraft = os.path.join(tempdir, service_name + '.sddraft')
         sd = os.path.join(tempdir, service_name + '.sd')
-        mxd = arcpy.mapping.MapDocument(mxd_path)
         log.debug('Creating SDDraft file: {}'.format(sddraft))
-        arcpy.mapping.CreateMapSDDraft(
-            mxd,
-            sddraft,
-            service_name,
-            'FROM_CONNECTION_FILE',
-            ags_connection,
-            False,
-            service_folder
-        )
-        modify_sddraft(sddraft, service_properties)
-        log.debug('Analyzing SDDraft file: {}'.format(sddraft))
-        analysis = arcpy.mapping.AnalyzeForSD(sddraft)
+
+        if service_type == 'MapServer':
+            mxd_path = os.path.join(source_dir, service_name + '.mxd')
+            mxd = arcpy.mapping.MapDocument(mxd_path)
+            arcpy.mapping.CreateMapSDDraft(
+                mxd,
+                sddraft,
+                service_name,
+                'FROM_CONNECTION_FILE',
+                ags_connection,
+                False,
+                service_folder
+            )
+            modify_sddraft(sddraft, service_properties)
+            log.debug('Analyzing SDDraft file: {}'.format(sddraft))
+            analysis = arcpy.mapping.AnalyzeForSD(sddraft)
+
+        elif service_type == 'GeocodeServer':
+            locator_path = os.path.join(source_dir, service_name)
+            if service_properties.get('rebuild_locators'):
+                log.info('Rebuilding locator {}'.format(locator_path))
+                arcpy.RebuildAddressLocator_geocoding(locator_path)
+            analysis = arcpy.CreateGeocodeSDDraft(
+                locator_path,
+                sddraft,
+                service_name,
+                'FROM_CONNECTION_FILE',
+                ags_connection,
+                False,
+                service_folder
+            )
+            modify_sddraft(sddraft, service_properties)
+
+        else:
+            raise RuntimeError('Unsupported service type {}!'.format(service_type))
+
         for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
             log.info('----' + key.upper() + '---')
             items = analysis[key]
@@ -269,16 +307,20 @@ def publish_service(
             arcpy.StageService_server(sddraft, sd)
             log.debug('Uploading SD file: {} to AGS connection file: {}'.format(sd, ags_connection))
             arcpy.UploadServiceDefinition_server(sd, ags_connection)
-            log.info('Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
-                     .format(service_folder, service_name, ags_instance, datetime.datetime.now()))
+            log.info(
+                'Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
+                .format(service_folder, service_name, ags_instance, datetime.datetime.now())
+            )
         else:
             error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
                 .format(service_folder, service_name, datetime.datetime.now())
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
     except:
-        log.exception('An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
-                      .format(service_folder, service_name, ags_instance))
+        log.exception(
+            'An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
+            .format(service_folder, service_name, ags_instance)
+        )
         raise
     finally:
         log.debug('Cleaning up temporary directory: {}'.format(tempdir))
@@ -323,15 +365,22 @@ def cleanup_instance(
 ):
     configured_services = config['services']
     service_folder = config.get('service_folder')
-    log.info('Cleaning up unused services on environment {}, ArcGIS Server instance {}, service folder {}'
-             .format(env_name, ags_instance, service_folder))
+    log.info(
+        'Cleaning up unused services on environment {}, ArcGIS Server instance {}, service folder {}'
+        .format(env_name, ags_instance, service_folder)
+    )
     ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
     server_url = ags_instance_props['url']
     token = ags_instance_props['token']
     existing_services = list_services(server_url, token, service_folder)
     services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
-    log.info('Removing {} services: {}'
-             .format(len(services_to_remove), ', '.join((service['serviceName'] for service in services_to_remove))))
+    log.info(
+        'Removing {} services: {}'
+        .format(
+            len(services_to_remove),
+            ', '.join((service['serviceName'] for service in services_to_remove))
+        )
+    )
     for service in services_to_remove:
         delete_service(server_url, token, service['serviceName'], service_folder, service['type'])
 
@@ -411,12 +460,17 @@ def find_mxd_data_sources(
     for config_name, config in get_configs(included_configs, excluded_configs, config_dir).iteritems():
         env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
         services = superfilter(config['services'], included_services, excluded_services)
+        default_service_properties = config.get('default_service_properties')
+
+        if not default_service_properties:
+            log.debug('No default service properties specified')
+
         for env_name in env_names:
             log.debug('Finding MXD data sources for config {}, environment {}'.format(config_name, env_name))
             env = config['environments'][env_name]
-            mxd_dir_to_copy_from = env.get('mxd_dir_to_copy_from')
-            mxd_dir = env['mxd_dir']
-            mxd_info, errors = get_service_mxd_info(services, mxd_dir, mxd_dir_to_copy_from)
+            staging_dir = env.get('staging_dir')
+            source_dir = env['source_dir']
+            source_info, errors = get_source_info(services, source_dir, staging_dir, default_service_properties)
             if len(errors) > 0:
                 message = 'One or more errors occurred while validating the {} environment for config name {}:\n{}' \
                           .format(env_name, config_name, '\n'.join(errors))
@@ -424,90 +478,130 @@ def find_mxd_data_sources(
                     log.warn(message)
                 else:
                     raise RuntimeError(message)
-            for service in services:
-                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
-                for mxd_path in mxd_info[service_name]:
-                    for (
-                        layer_name,
-                        dataset_name,
-                        workspace_path,
-                        user,
-                        database,
-                        version
-                    ) in get_data_sources(mxd_path):
-                        if (
-                            superfilter((dataset_name,), included_datasets, excluded_datasets) and
-                            superfilter((user,), included_users, excluded_users) and
-                            superfilter((database,), included_databases, excluded_databases) and
-                            superfilter((version,), included_versions, excluded_versions)
-                        ):
-                            yield (
-                                config_name,
-                                env_name,
-                                service_name,
-                                mxd_path,
-                                layer_name,
-                                dataset_name,
-                                user,
-                                database,
-                                version,
-                                workspace_path
-                            )
+            for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+                if service_type == 'MapServer':
+                    for mxd_path in source_info[service_name]:
+                        for (
+                            layer_name,
+                            dataset_name,
+                            workspace_path,
+                            user,
+                            database,
+                            version
+                        ) in get_data_sources(mxd_path):
+                            if (
+                                superfilter((dataset_name,), included_datasets, excluded_datasets) and
+                                superfilter((user,), included_users, excluded_users) and
+                                superfilter((database,), included_databases, excluded_databases) and
+                                superfilter((version,), included_versions, excluded_versions)
+                            ):
+                                yield (
+                                    config_name,
+                                    env_name,
+                                    service_name,
+                                    mxd_path,
+                                    layer_name,
+                                    dataset_name,
+                                    user,
+                                    database,
+                                    version,
+                                    workspace_path
+                                )
+                else:
+                    log.debug(
+                        'Unsupported service type {} of service {} will be skipped'
+                        .format(service_type, service_name)
+                    )
 
 
-def get_service_mxd_info(services, primary_mxd_dir, staging_mxd_dir):
+def get_source_info(services, source_dir, staging_dir, default_service_properties):
     log.debug(
-        'Getting MXD info for services {}, primary MXD directory: {}, staging MXD directory {}'
-        .format(services, primary_mxd_dir, staging_mxd_dir)
+        'Getting source info for services {}, source directory: {}, staging directory {}'
+        .format(services, source_dir, staging_dir)
     )
 
-    mxd_info = {}
+    source_info = {}
     errors = []
 
-    if staging_mxd_dir:
-        if isinstance(staging_mxd_dir, list):
-            # If multiple MXD staging folders are provided, look for the MXD in each staging folder
-            staging_dirs = staging_mxd_dir
+    if staging_dir:
+        if isinstance(staging_dir, list):
+            # If multiple staging folders are provided, look for the source item in each staging folder
+            staging_dirs = staging_dir
         else:
-            staging_dirs = (staging_mxd_dir,)
-        for staging_mxd_dir in staging_dirs:
-            log.debug('Finding staging MXDs in directory: {}'.format(staging_mxd_dir))
-            for service in services:
-                service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
-                staging_mxd = os.path.abspath(os.path.join(staging_mxd_dir, service_name) + '.mxd')
-                if os.path.isfile(staging_mxd):
-                    log.debug('Staging MXD found: {}'.format(staging_mxd))
-                    if service_name in mxd_info:
-                        mxd_info[service_name].append(staging_mxd)
-                    else:
-                        mxd_info[service_name] = [staging_mxd]
+            staging_dirs = (staging_dir,)
+        for staging_dir in staging_dirs:
+            log.debug('Finding staging items in directory: {}'.format(staging_dir))
+            for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+                if service_type == 'MapServer':
+                    staging_file_path = os.path.abspath(os.path.join(staging_dir, service_name + '.mxd'))
+                elif service_type == 'GeocodeServer':
+                    staging_file_path = os.path.abspath(os.path.join(staging_dir, service_name + '.loc'))
                 else:
-                    log.debug('Staging MXD missing: {}'.format(staging_mxd))
-        for service_name, staging_mxd_paths in mxd_info.iteritems():
-            if len(staging_mxd_paths) == 0:
-                errors.append('- No staging MXD found for service {}'.format(service_name))
-            elif len(staging_mxd_paths) > 1:
+                    log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
+
+                if os.path.isfile(staging_file_path):
+                    log.debug('Staging file found: {}'.format(staging_file_path))
+                    if service_name in source_info:
+                        source_info[service_name].append(staging_file_path)
+                    else:
+                        source_info[service_name] = [staging_file_path]
+                else:
+                    log.debug('Staging file missing: {}'.format(staging_file_path))
+        for service_name, staging_file_paths in source_info.iteritems():
+            if len(staging_file_paths) == 0:
+                errors.append('- No staging file found for service {}'.format(service_name))
+            elif len(staging_file_paths) > 1:
                 errors.append(
-                    '- More than one staging MXD found for service {}: \n{}'
+                    '- More than one staging file found for service {}: \n{}'
                     .format(
                         service_name,
-                        '\n'.join('  - {}'.format(staging_mxd_path) for staging_mxd_path in staging_mxd_paths)
+                        '\n'.join('  - {}'.format(staging_file_path) for staging_file_path in staging_file_paths)
                     )
                 )
 
-    if primary_mxd_dir:
-        log.debug('Finding primary MXDs in directory: {}'.format(primary_mxd_dir))
-        for service in services:
-            service_name = service.keys()[0] if isinstance(service, collections.Mapping) else service
-            primary_mxd = os.path.abspath(os.path.join(primary_mxd_dir, service_name) + '.mxd')
-            if os.path.isfile(primary_mxd):
-                log.debug('Primary MXD found: {}'.format(primary_mxd))
-                if service_name in mxd_info:
-                    mxd_info[service_name].append(primary_mxd)
-                else:
-                    mxd_info[service_name] = [primary_mxd]
+    if source_dir:
+        log.debug('Finding source files in directory: {}'.format(source_dir))
+        for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+            if service_type == 'MapServer':
+                source_file_path = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
+            elif service_type == 'GeocodeServer':
+                source_file_path = os.path.abspath(os.path.join(source_dir, service_name + '.loc'))
             else:
-                log.debug('Primary MXD missing: {}'.format(primary_mxd))
-                errors.append('- Primary MXD {} for service {} does not exist!'.format(primary_mxd, service_name))
+                log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
+            if os.path.isfile(source_file_path):
+                log.debug('Source file found: {}'.format(source_file_path))
+                if service_name in source_info:
+                    source_info[service_name].append(source_file_path)
+                else:
+                    source_info[service_name] = [source_file_path]
+            else:
+                log.debug('Source file missing: {}'.format(source_file_path))
+                errors.append('- Source file {} for service {} does not exist!'.format(source_file_path, service_name))
 
-    return mxd_info, errors
+    return source_info, errors
+
+
+def normalize_services(services, default_service_properties):
+    for service in services:
+        yield get_service_info(service, default_service_properties)
+
+
+def get_service_info(service, default_service_properties):
+    is_mapping = isinstance(service, collections.Mapping)
+    service_name = service.keys()[0] if is_mapping else service
+    merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
+    if is_mapping:
+        service_properties = service.items()[0][1]
+        if service_properties:
+            log.debug('Overriding default service properties for service {}'.format(service_name))
+            merged_service_properties.update(service_properties)
+        else:
+            log.warn(
+                'No service-level properties specified for service {} '
+                'even though it was specified as a mapping'
+                    .format(service_name)
+            )
+    else:
+        log.debug('No service-level properties specified for service {}'.format(service_name))
+    service_type = merged_service_properties.get('service_type', 'MapServer')
+    return service_name, service_type, merged_service_properties

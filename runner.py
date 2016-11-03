@@ -192,7 +192,7 @@ def run_mxd_data_sources_report(
     included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
     output_filename=None,
     output_format='csv',
-    warn_on_errors=False,
+    warn_on_validation_errors=False,
     verbose=False,
     quiet=False,
     config_dir=default_config_dir
@@ -220,7 +220,7 @@ def run_mxd_data_sources_report(
             included_services, excluded_services,
             included_envs, excluded_envs,
             included_datasets, excluded_datasets,
-            warn_on_errors,
+            warn_on_validation_errors,
             config_dir
         )
 

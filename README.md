@@ -5,8 +5,8 @@
 ## Overview
 
 The primary purpose of this tool is to automate the publishing of MXD files to Map Services on ArcGIS Server, using
-[YAML][1] configuration files to define the service folders, environments, services,
-service properties, data source mappings and more.
+[YAML][1] configuration files to define the service folders, environments, services, service properties, data source
+mappings and more. Publishing geocoding services is also supported, with some limitations (e.g. no data source mapping).
 
 Additional features include [cleaning up](#clean-up-services) outdated services and
 [generating reports](#generate-reports) about existing services and the datasets they reference on ArcGIS Server.
@@ -46,10 +46,8 @@ of your ArcGIS Server instances.
   6. Create additional configuration files for each service folder you want to publish. Configuration files must have a
      `.yml` extension.
      - Create a top-level `service_folder` key with the name of the service folder as its value.
-     - Create a top-level `services` key with a list of services to publish, with each service name preceded by a hyphen
+     - Create a top-level `services` key with a list of service names to publish, with each service name preceded by a hyphen
        (`-`) and a space.
-       - MXD files are matched based on the names of the services, for example `CouncilDistrictsFill` maps to
-       `CouncilDistrictsFill.mxd`.
      - Create a top-level `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and
        `prod`.
 
@@ -57,19 +55,26 @@ of your ArcGIS Server instances.
        - `ags_instances`: List of ArcGIS Server instances to publish to.
        - `data_source_mappings` (optional): Mappings of source data paths to destination data paths (e.g. development
           environment SDE connection files to test environment SDE connection files)
-       - `mxd_dir`: Directory containing the MXD files to publish
-       - `mxd_dir_to_copy_from` (optional): Directory containing MXD files to copy into `mxd_dir` prior to mapping data
-          sources and publishing
-          - Can also be a list of multiple source directories. Each service may only have one corresponding MXD among
-            all of the source directories. Duplicates will result in an error.
+          - Supported by `MapServer` services, but not `GeocodeServer` services.
+       - `source_dir`: Directory containing the source files (MXDs, locator files, etc.) to publish.
+       - `staging_dir` (optional): Directory containing staging files to copy into `source_dir` prior to mapping data
+          sources and publishing.
+          - Can also be a list of multiple staging directories. Each service may only have one corresponding staging
+            file among all of the staging directories. Duplicates will result in a validation error.
      - You can set service properties (e.g. isolation level, number of instances per container, cache directory, etc.).
        - To specify service properties, create key/value pairs for the properties to set and the values to set them to.
          Keys are matched to service property names case-insensitively, and any underscores are stripped so that you can
          use `snake_case` to specify them; for example `instances_per_container` will match the `InstancesPerContainer`
          property.
          - Additionally, the following "special" service properties are recognized:
-            - `replace_service`: If set to `true`, specifies that any existing service is to be replaced. This can be
-              useful to set if you find duplicate services with a timestamp suffix are being created on the server.
+            - `service_type`: The type of service to publish. Defaults to `MapServer`. Currently the only supported
+              types are below:
+               - `MapServer`
+               - `GeocodeServer`
+            - `replace_service`: If set to `True`, specifies that any existing service is to be replaced. This can be
+              useful to enable if you find duplicate services with a timestamp suffix are being created on the server.
+            - `rebuild_locators`: Whether to rebuild locators before publishing them (only applies to `GeocodeServer`
+              services).
             - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
               [Generate Map Server Cache Tiling Scheme][5] geoprocessing tool. Used for specifying the tile scheme of
               cached map services.
@@ -120,7 +125,7 @@ environments:
     ags_instances:
       - coagisd1
       - coagisd2
-    mxd_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
+    source_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
   test:
     ags_instances:
       - coagist1
@@ -128,8 +133,8 @@ environments:
     data_source_mappings:
       \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE).sde: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde
       \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE) external.sde: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
-    mxd_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
-    mxd_dir_to_copy_from: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
+    source_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
+    staging_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
   prod:
     ags_instances:
       - coagisp1
@@ -137,8 +142,8 @@ environments:
     data_source_mappings:
       \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
       \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
-    mxd_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\mxd-source\CouncilDistrictMap
-    mxd_dir_to_copy_from: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
+    source_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\mxd-source\CouncilDistrictMap
+    staging_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
 ```
 
 ###`userconfig.yml`:
