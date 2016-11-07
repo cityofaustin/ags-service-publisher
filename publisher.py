@@ -123,11 +123,11 @@ def publish_env(
             else:
                 raise RuntimeError(message)
         for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
-
+            service_info = source_info[service_name]
             if service_type == 'MapServer':
-                source_mxd_path = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
+                source_mxd_path = service_info['source_file']
                 if staging_dir:
-                    staging_mxd_path = source_info[service_name][0]
+                    staging_mxd_path = service_info['staging_files'][0]
                     log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
                     if not os.path.isdir(source_dir):
                         log.warn('Creating source directory {}'.format(source_dir))
@@ -154,9 +154,9 @@ def publish_env(
                         )
                     del proc
             if service_type == 'GeocodeServer':
-                source_locator_path = os.path.abspath(os.path.join(source_dir, service_name) + '.loc')
+                source_locator_path = service_info['source_file']
                 if staging_dir:
-                    staging_locator_path = source_info[service_name][0]
+                    staging_locator_path = service_info['staging_files'][0]
                     log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
                     if not os.path.isdir(source_dir):
                         log.warn('Creating source directory {}'.format(source_dir))
@@ -480,33 +480,33 @@ def find_mxd_data_sources(
                     raise RuntimeError(message)
             for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
                 if service_type == 'MapServer':
-                    for mxd_path in source_info[service_name]:
-                        for (
-                            layer_name,
-                            dataset_name,
-                            workspace_path,
-                            user,
-                            database,
-                            version
-                        ) in get_data_sources(mxd_path):
-                            if (
-                                superfilter((dataset_name,), included_datasets, excluded_datasets) and
-                                superfilter((user,), included_users, excluded_users) and
-                                superfilter((database,), included_databases, excluded_databases) and
-                                superfilter((version,), included_versions, excluded_versions)
-                            ):
-                                yield (
-                                    config_name,
-                                    env_name,
-                                    service_name,
-                                    mxd_path,
-                                    layer_name,
-                                    dataset_name,
-                                    user,
-                                    database,
-                                    version,
-                                    workspace_path
-                                )
+                    mxd_path = source_info[service_name]['source_file']
+                    for (
+                        layer_name,
+                        dataset_name,
+                        workspace_path,
+                        user,
+                        database,
+                        version
+                    ) in get_data_sources(mxd_path):
+                        if (
+                            superfilter((dataset_name,), included_datasets, excluded_datasets) and
+                            superfilter((user,), included_users, excluded_users) and
+                            superfilter((database,), included_databases, excluded_databases) and
+                            superfilter((version,), included_versions, excluded_versions)
+                        ):
+                            yield (
+                                config_name,
+                                env_name,
+                                service_name,
+                                mxd_path,
+                                layer_name,
+                                dataset_name,
+                                user,
+                                database,
+                                version,
+                                workspace_path
+                            )
                 else:
                     log.debug(
                         'Unsupported service type {} of service {} will be skipped'
@@ -523,60 +523,58 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
     source_info = {}
     errors = []
 
-    if staging_dir:
-        if isinstance(staging_dir, list):
-            # If multiple staging folders are provided, look for the source item in each staging folder
-            staging_dirs = staging_dir
-        else:
-            staging_dirs = (staging_dir,)
-        for staging_dir in staging_dirs:
-            log.debug('Finding staging items in directory: {}'.format(staging_dir))
-            for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+    for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+        service_info = source_info[service_name] = {
+            'source_file': None,
+            'staging_files': []
+        }
+        if staging_dir:
+            staging_files = service_info['staging_files']
+            if isinstance(staging_dir, list):
+                # If multiple staging folders are provided, look for the source item in each staging folder
+                staging_dirs = staging_dir
+            else:
+                staging_dirs = (staging_dir,)
+            for staging_dir in staging_dirs:
+                log.debug('Finding staging items in directory: {}'.format(staging_dir))
                 if service_type == 'MapServer':
-                    staging_file_path = os.path.abspath(os.path.join(staging_dir, service_name + '.mxd'))
+                    staging_file = os.path.abspath(os.path.join(staging_dir, service_name + '.mxd'))
                 elif service_type == 'GeocodeServer':
-                    staging_file_path = os.path.abspath(os.path.join(staging_dir, service_name + '.loc'))
+                    staging_file = os.path.abspath(os.path.join(staging_dir, service_name + '.loc'))
                 else:
                     log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
 
-                if os.path.isfile(staging_file_path):
-                    log.debug('Staging file found: {}'.format(staging_file_path))
-                    if service_name in source_info:
-                        source_info[service_name].append(staging_file_path)
-                    else:
-                        source_info[service_name] = [staging_file_path]
+                if os.path.isfile(staging_file):
+                    log.debug('Staging file found: {}'.format(staging_file))
+                    staging_files.append(staging_file)
                 else:
-                    log.debug('Staging file missing: {}'.format(staging_file_path))
-        for service_name, staging_file_paths in source_info.iteritems():
-            if len(staging_file_paths) == 0:
+                    log.debug('Staging file missing: {}'.format(staging_file))
+
+            if len(staging_files) == 0:
                 errors.append('- No staging file found for service {}'.format(service_name))
-            elif len(staging_file_paths) > 1:
+            elif len(staging_files) > 1:
                 errors.append(
                     '- More than one staging file found for service {}: \n{}'
                     .format(
                         service_name,
-                        '\n'.join('  - {}'.format(staging_file_path) for staging_file_path in staging_file_paths)
+                        '\n'.join('  - {}'.format(staging_file) for staging_file in staging_files)
                     )
                 )
 
-    if source_dir:
-        log.debug('Finding source files in directory: {}'.format(source_dir))
-        for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+        if source_dir:
+            log.debug('Finding source files in directory: {}'.format(source_dir))
             if service_type == 'MapServer':
-                source_file_path = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
+                source_file = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
             elif service_type == 'GeocodeServer':
-                source_file_path = os.path.abspath(os.path.join(source_dir, service_name + '.loc'))
+                source_file = os.path.abspath(os.path.join(source_dir, service_name + '.loc'))
             else:
                 log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
-            if os.path.isfile(source_file_path):
-                log.debug('Source file found: {}'.format(source_file_path))
-                if service_name in source_info:
-                    source_info[service_name].append(source_file_path)
-                else:
-                    source_info[service_name] = [source_file_path]
+            if os.path.isfile(source_file):
+                log.debug('Source file found: {}'.format(source_file))
+                service_info['source_file'] = source_file
             else:
-                log.debug('Source file missing: {}'.format(source_file_path))
-                errors.append('- Source file {} for service {} does not exist!'.format(source_file_path, service_name))
+                log.debug('Source file missing: {}'.format(source_file))
+                errors.append('- Source file {} for service {} does not exist!'.format(source_file, service_name))
 
     return source_info, errors
 
