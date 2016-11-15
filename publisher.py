@@ -126,6 +126,8 @@ def publish_env(
             service_info = source_info[service_name]
             if service_type == 'MapServer':
                 source_mxd_path = service_info['source_file']
+                if not source_mxd_path:
+                    source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
                 if staging_dir:
                     staging_mxd_path = service_info['staging_files'][0]
                     log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
