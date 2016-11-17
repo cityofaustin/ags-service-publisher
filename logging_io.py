@@ -20,10 +20,19 @@ def setup_console_log_handler(logger=None, verbose=False):
     log_console_level = 'DEBUG' if verbose else 'INFO'
     if not logger:
         logger = setup_logger()
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(log_console_format))
-    console_handler.setLevel(logging.getLevelName(log_console_level))
-    logger.addHandler(console_handler)
+    console_handler = None
+
+    has_console_handler = False
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            console_handler = logger.handlers[0]
+            has_console_handler = True
+            break
+    if not has_console_handler:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(log_console_format))
+        console_handler.setLevel(logging.getLevelName(log_console_level))
+        logger.addHandler(console_handler)
     return console_handler
 
 
