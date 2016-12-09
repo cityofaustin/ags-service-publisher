@@ -51,7 +51,11 @@ def logged_call(log_queue, func, *args, **kwargs):
     for logger in logging.Logger.manager.loggerDict.values():
         if not isinstance(logger, logging.PlaceHolder):
             logger.__class__ = MPLogger
-    func(*args, **kwargs)
+    try:
+        func(*args, **kwargs)
+    except StandardError as e:
+        logging.exception('Unhandled exception in logged call {}.{}'.format(func.__module__, func.__name__))
+        raise
 
 
 @contextlib.contextmanager
