@@ -36,13 +36,13 @@ def setup_console_log_handler(logger=None, verbose=False):
     return console_handler
 
 
-def setup_file_log_handler(logger=None, config_name=None, log_dir=default_log_dir):
+def setup_file_log_handler(logger=None, base_filename=None, log_dir=default_log_dir):
     log_file_format = '%(asctime)s|%(levelname)s|%(processName)s|%(module)s|%(funcName)s|%(message)s'
     log_file_datetime_format = '%Y%m%d-%H%M%S'
     log_file_level = 'DEBUG'
     log_file_name = ''.join(
         (
-            config_name + '_' if config_name else '',
+            base_filename + '_' if base_filename else '',
             datetime.datetime.now().strftime(log_file_datetime_format),
             '.log'
         )
