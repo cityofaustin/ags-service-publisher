@@ -254,6 +254,7 @@ def run_mxd_data_sources_report(
             if output_filename and os.path.isfile(output_filename) else ''
         )
     )
+    return output_filename
 
 
 def generate_tokens(
