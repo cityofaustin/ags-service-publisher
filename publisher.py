@@ -24,6 +24,7 @@ def publish_config(
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     included_services=asterisk_tuple, excluded_services=empty_tuple,
+    copy_source_files_from_staging_folder=True,
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
@@ -45,6 +46,7 @@ def publish_config(
                 user_config,
                 included_instances, excluded_instances,
                 included_services, excluded_services,
+                copy_source_files_from_staging_folder,
                 cleanup_services,
                 service_prefix,
                 service_suffix,
@@ -60,6 +62,7 @@ def publish_config_name(
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     included_services=asterisk_tuple, excluded_services=empty_tuple,
+    copy_source_files_from_staging_folder=True,
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
@@ -73,6 +76,7 @@ def publish_config_name(
         included_envs, excluded_envs,
         included_instances, excluded_instances,
         included_services, excluded_services,
+        copy_source_files_from_staging_folder,
         cleanup_services,
         service_prefix,
         service_suffix,
@@ -86,6 +90,7 @@ def publish_env(
     user_config,
     included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     included_services=asterisk_tuple, excluded_services=empty_tuple,
+    copy_source_files_from_staging_folder=True,
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
@@ -123,59 +128,62 @@ def publish_env(
             else:
                 raise RuntimeError(message)
         for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
-            service_info = source_info[service_name]
-            if service_type == 'MapServer':
-                source_mxd_path = service_info['source_file']
-                if not source_mxd_path:
-                    source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
-                if staging_dir:
-                    staging_mxd_path = service_info['staging_files'][0]
-                    log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
-                    if not os.path.isdir(source_dir):
-                        log.warn('Creating source directory {}'.format(source_dir))
-                        os.makedirs(source_dir)
-                    copyfile(staging_mxd_path, source_mxd_path)
-                if not os.path.isfile(source_mxd_path):
-                    raise RuntimeError('Source MXD {} does not exist!'.format(source_mxd_path))
-                if data_source_mappings:
-                    proc = multiprocessing.Process(
-                        target=logged_call,
-                        args=(
-                            log_queue,
-                            update_data_sources,
-                            source_mxd_path,
-                            data_source_mappings
+            if copy_source_files_from_staging_folder:
+                service_info = source_info[service_name]
+                if service_type == 'MapServer':
+                    source_mxd_path = service_info['source_file']
+                    if not source_mxd_path:
+                        source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
+                    if staging_dir:
+                        staging_mxd_path = service_info['staging_files'][0]
+                        log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
+                        if not os.path.isdir(source_dir):
+                            log.warn('Creating source directory {}'.format(source_dir))
+                            os.makedirs(source_dir)
+                        copyfile(staging_mxd_path, source_mxd_path)
+                    if not os.path.isfile(source_mxd_path):
+                        raise RuntimeError('Source MXD {} does not exist!'.format(source_mxd_path))
+                    if data_source_mappings:
+                        proc = multiprocessing.Process(
+                            target=logged_call,
+                            args=(
+                                log_queue,
+                                update_data_sources,
+                                source_mxd_path,
+                                data_source_mappings
+                            )
                         )
-                    )
-                    proc.start()
-                    proc.join()
-                    if proc.exitcode != 0:
-                        raise RuntimeError(
-                            'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
-                            .format(proc.name, proc.pid, source_mxd_path)
+                        proc.start()
+                        proc.join()
+                        if proc.exitcode != 0:
+                            raise RuntimeError(
+                                'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
+                                .format(proc.name, proc.pid, source_mxd_path)
+                            )
+                        del proc
+                if service_type == 'GeocodeServer':
+                    source_locator_path = service_info['source_file']
+                    if staging_dir:
+                        staging_locator_path = service_info['staging_files'][0]
+                        log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
+                        if not os.path.isdir(source_dir):
+                            log.warn('Creating source directory {}'.format(source_dir))
+                            os.makedirs(source_dir)
+                        copyfile(staging_locator_path, source_locator_path)
+                        copyfile(staging_locator_path + '.xml', source_locator_path + '.xml')
+                        staging_locator_lox_path = os.path.splitext(staging_locator_path)[0] + '.lox'
+                        if os.path.isfile(staging_locator_lox_path):
+                            copyfile(staging_locator_lox_path, os.path.splitext(source_locator_path)[0] + '.lox')
+                    if not os.path.isfile(source_locator_path):
+                        raise RuntimeError('Source locator file {} does not exist!'.format(source_locator_path))
+                    if data_source_mappings:
+                        log.warn(
+                            'Data source mappings specified but are not supported with GeocodeServer services, skipping '
+                            'service {}.'
+                            .format(service_name)
                         )
-                    del proc
-            if service_type == 'GeocodeServer':
-                source_locator_path = service_info['source_file']
-                if staging_dir:
-                    staging_locator_path = service_info['staging_files'][0]
-                    log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
-                    if not os.path.isdir(source_dir):
-                        log.warn('Creating source directory {}'.format(source_dir))
-                        os.makedirs(source_dir)
-                    copyfile(staging_locator_path, source_locator_path)
-                    copyfile(staging_locator_path + '.xml', source_locator_path + '.xml')
-                    staging_locator_lox_path = os.path.splitext(staging_locator_path)[0] + '.lox'
-                    if os.path.isfile(staging_locator_lox_path):
-                        copyfile(staging_locator_lox_path, os.path.splitext(source_locator_path)[0] + '.lox')
-                if not os.path.isfile(source_locator_path):
-                    raise RuntimeError('Source locator file {} does not exist!'.format(source_locator_path))
-                if data_source_mappings:
-                    log.warn(
-                        'Data source mappings specified but are not supported with GeocodeServer services, skipping '
-                        'service {}.'
-                        .format(service_name)
-                    )
+            else:
+                log.debug('Will skip copying source files from staging folder.')
             procs = list()
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
