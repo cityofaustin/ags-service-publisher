@@ -8,10 +8,10 @@ default_log_dir = os.getenv(
 )
 
 
-def setup_logger(namespace=None, level='DEBUG'):
+def setup_logger(namespace=None, level='DEBUG', handler=None):
     logger = logging.getLogger(namespace)
     logger.setLevel(logging.getLevelName(level))
-    logger.addHandler(logging.NullHandler())
+    logger.addHandler(logging.NullHandler() if handler is None else handler)
     return logger
 
 
