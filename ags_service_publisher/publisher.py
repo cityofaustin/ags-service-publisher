@@ -540,17 +540,14 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
         }
         if staging_dir:
             staging_files = service_info['staging_files']
-            if isinstance(staging_dir, list):
-                # If multiple staging folders are provided, look for the source item in each staging folder
-                staging_dirs = staging_dir
-            else:
-                staging_dirs = (staging_dir,)
-            for staging_dir in staging_dirs:
-                log.debug('Finding staging items in directory: {}'.format(staging_dir))
+            # If multiple staging folders are provided, look for the source item in each staging folder
+            staging_dirs = (staging_dir,) if isinstance(staging_dir, basestring) else staging_dir
+            for _staging_dir in staging_dirs:
+                log.debug('Finding staging items in directory: {}'.format(_staging_dir))
                 if service_type == 'MapServer':
-                    staging_file = os.path.abspath(os.path.join(staging_dir, service_name + '.mxd'))
+                    staging_file = os.path.abspath(os.path.join(_staging_dir, service_name + '.mxd'))
                 elif service_type == 'GeocodeServer':
-                    staging_file = os.path.abspath(os.path.join(staging_dir, service_name + '.loc'))
+                    staging_file = os.path.abspath(os.path.join(_staging_dir, service_name + '.loc'))
                 else:
                     log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
 
