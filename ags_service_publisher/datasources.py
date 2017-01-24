@@ -39,6 +39,7 @@ def get_data_sources(mxd_path):
             user = 'n/a'
             database = 'n/a'
             version = 'n/a'
+            definition_query = layer.definitionQuery if layer.supports('definitionQuery') else 'n/a'
             if layer.supports('serviceProperties'):
                 service_props = layer.serviceProperties
                 user = service_props.get('UserName', 'n/a')
@@ -46,8 +47,8 @@ def get_data_sources(mxd_path):
                 database = parse_database_from_service_string(service_props.get('Service', 'n/a'))
 
             log.debug(
-                'Layer name: {}, Dataset name: {}, Workspace path: {}, User: {}, Database: {}, Version: {}'
-                .format(layer.name, layer.datasetName, layer.workspacePath, user, database, version)
+                'Layer name: {}, Dataset name: {}, Workspace path: {}, User: {}, Database: {}, Version: {}, Definition Query: {}'
+                .format(layer.name, layer.datasetName, layer.workspacePath, user, database, version, definition_query)
             )
             yield (
                 layer.name,
@@ -55,7 +56,8 @@ def get_data_sources(mxd_path):
                 layer.workspacePath,
                 user,
                 database,
-                version
+                version,
+                definition_query
             )
 
 

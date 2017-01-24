@@ -497,7 +497,8 @@ def find_mxd_data_sources(
                         workspace_path,
                         user,
                         database,
-                        version
+                        version,
+                        definition_query
                     ) in get_data_sources(mxd_path):
                         if (
                             superfilter((dataset_name,), included_datasets, excluded_datasets) and
@@ -515,7 +516,8 @@ def find_mxd_data_sources(
                                 user,
                                 database,
                                 version,
-                                workspace_path
+                                workspace_path,
+                                definition_query
                             )
                 else:
                     log.debug(

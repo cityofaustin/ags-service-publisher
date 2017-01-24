@@ -240,7 +240,8 @@ def run_mxd_data_sources_report(
                 'User',
                 'Database',
                 'Version',
-                'Workspace Path'
+                'Workspace Path',
+                'Definition Query'
             )
             rows = report_data
             csv_writer = csv.writer(csv_file, lineterminator='\n')
