@@ -491,34 +491,37 @@ def find_mxd_data_sources(
             for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
                 if service_type == 'MapServer':
                     mxd_path = source_info[service_name]['source_file']
-                    for (
-                        layer_name,
-                        dataset_name,
-                        workspace_path,
-                        user,
-                        database,
-                        version,
-                        definition_query
-                    ) in get_data_sources(mxd_path):
-                        if (
-                            superfilter((dataset_name,), included_datasets, excluded_datasets) and
-                            superfilter((user,), included_users, excluded_users) and
-                            superfilter((database,), included_databases, excluded_databases) and
-                            superfilter((version,), included_versions, excluded_versions)
-                        ):
-                            yield (
-                                config_name,
-                                env_name,
-                                service_name,
-                                mxd_path,
-                                layer_name,
-                                dataset_name,
-                                user,
-                                database,
-                                version,
-                                workspace_path,
-                                definition_query
-                            )
+                    if mxd_path:
+                        for (
+                            layer_name,
+                            dataset_name,
+                            workspace_path,
+                            user,
+                            database,
+                            version,
+                            definition_query
+                        ) in get_data_sources(mxd_path):
+                            if (
+                                superfilter((dataset_name,), included_datasets, excluded_datasets) and
+                                superfilter((user,), included_users, excluded_users) and
+                                superfilter((database,), included_databases, excluded_databases) and
+                                superfilter((version,), included_versions, excluded_versions)
+                            ):
+                                yield (
+                                    config_name,
+                                    env_name,
+                                    service_name,
+                                    mxd_path,
+                                    layer_name,
+                                    dataset_name,
+                                    user,
+                                    database,
+                                    version,
+                                    workspace_path,
+                                    definition_query
+                                )
+                    else:
+                        log.warn('No source MXD found for service {}/{}!'.format(service_type, service_name))
                 else:
                     log.debug(
                         'Unsupported service type {} of service {} will be skipped'
