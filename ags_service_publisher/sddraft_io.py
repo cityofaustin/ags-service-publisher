@@ -98,6 +98,8 @@ def modify_sddraft(sddraft, service_properties=None):
         property_name = property_element.find('Key').text
         for key, value in service_properties.iteritems():
             if snake_case_to_pascal_case(key).lower() == property_name.lower():
+                if str(value) == 'True' or str(value) == 'False':
+                    value = str(value).lower()
                 log.debug('Setting value of property name {} to {}'.format(property_name, value))
                 property_element.find('Value').text = str(value)
 
