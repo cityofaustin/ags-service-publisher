@@ -18,14 +18,24 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
     url = urljoin(server_url, '/arcgis/admin/generateToken')
     log.debug(url)
     try:
-        r = requests.post(url, {'username': username, 'password': password, 'client': 'requestip',
-                                'expiration': str(expiration), 'f': 'json'})
+        r = requests.post(
+            url,
+            {
+                'username': username,
+                'password': password,
+                'client': 'requestip',
+                'expiration': str(expiration),
+                'f': 'json'
+            }
+        )
         assert r.status_code == 200
         data = r.json()
         if data.get('status') == 'error':
             raise RuntimeError(data.get('messages'))
-        log.info('Successfully generated token (URL: {}, user: {}, expires: {}'
-                 .format(server_url, username, data['expires']))
+        log.info(
+            'Successfully generated token (URL: {}, user: {}, expires: {}'
+            .format(server_url, username, data['expires'])
+        )
         return data['token']
     except:
         log.exception('An error occurred while generating token (URL: {}, user: {})'.format(server_url, username))
@@ -51,7 +61,17 @@ def list_service_folders(server_url, token):
 
 def list_services(server_url, token, service_folder=None):
     log.debug('Listing services (URL: {}, Folder: {})'.format(server_url, service_folder))
-    url = urljoin(server_url, '/'.join((part for part in ('/arcgis/admin/services', service_folder) if part)))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder
+                ) if part
+            )
+        )
+    )
     log.debug(url)
     try:
         r = requests.get(url, {'token': token, 'f': 'json'})
@@ -62,21 +82,37 @@ def list_services(server_url, token, service_folder=None):
         services = data['services']
         return services
     except:
-        log.exception('An error occurred while listing services (URL: {}, Folder: {})'
-                      .format(server_url, service_folder))
+        log.exception(
+            'An error occurred while listing services (URL: {}, Folder: {})'
+            .format(server_url, service_folder)
+        )
         raise
 
 
 def list_service_workspaces(server_url, token, service_name, service_folder=None, service_type='MapServer'):
     if service_type == 'GeometryServer':
-        log.warn('Unsupported service type {} for service {} in folder {}'
-                 .format(service_type, service_name, service_folder))
+        log.warn(
+            'Unsupported service type {} for service {} in folder {}'
+            .format(service_type, service_name, service_folder)
+        )
         return
-    log.debug('Listing workspaces for service {} (URL: {}, Folder: {})'
-             .format(service_name, server_url, service_folder))
-    url = urljoin(server_url, '/'.join((part for part in (
-        '/arcgis/admin/services', service_folder, '{}.{}'.format(service_name, service_type),
-        'iteminfo/manifest/manifest.xml') if part)))
+    log.debug(
+        'Listing workspaces for service {} (URL: {}, Folder: {})'
+        .format(service_name, server_url, service_folder)
+    )
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'iteminfo/manifest/manifest.xml'
+                ) if part
+            )
+        )
+    )
     log.debug(url)
     try:
         r = requests.get(url, {'token': token})
@@ -93,15 +129,28 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
                 conn_props.get('VERSION', 'n/a')
             )
     except:
-        log.exception('An error occurred while listing workspaces for service {}{}'
-                      .format(service_folder, service_name))
+        log.exception(
+            'An error occurred while listing workspaces for service {}{}'
+            .format(service_folder, service_name)
+        )
         raise
 
 
 def delete_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
     log.info('Deleting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
-    url = urljoin(server_url, '/'.join((part for part in (
-        '/arcgis/admin/services', service_folder, '{}.{}'.format(service_name, service_type), 'delete') if part)))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'delete'
+                ) if part
+            )
+        )
+    )
     log.debug(url)
     try:
         r = requests.post(url, {'token': token, 'f': 'json'})
@@ -109,11 +158,15 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         data = r.json()
         if data.get('status') == 'error':
             raise RuntimeError(data.get('messages'))
-        log.info('Service {} successfully deleted (URL {}, Folder: {})'
-                 .format(service_name, server_url, service_folder))
+        log.info(
+            'Service {} successfully deleted (URL {}, Folder: {})'
+            .format(service_name, server_url, service_folder)
+        )
     except:
-        log.exception('An error occurred while deleting service {}{}'
-                      .format(service_folder, service_name))
+        log.exception(
+            'An error occurred while deleting service {}{}'
+            .format(service_folder, service_name)
+        )
         raise
 
 
@@ -148,19 +201,29 @@ def parse_connection_string(conn_string):
 
 def prompt_for_credentials(username=None, password=None, ags_instance=None):
     if not username:
-        username = raw_input('User name{}: '
-                             .format(' for ArcGIS Server instance {}'
-                                     .format(ags_instance) if ags_instance else ''))
+        username = raw_input(
+            'User name{}: '
+            .format(
+                ' for ArcGIS Server instance {}'
+                .format(ags_instance) if ags_instance else ''
+            )
+        )
     if not password:
-        password = getpass.getpass(prompt='Password{}: '
-                                   .format(' for ArcGIS Server instance {}'
-                                        .format(ags_instance) if ags_instance else ''))
+        password = getpass.getpass(
+            prompt='Password{}: '
+            .format(
+                ' for ArcGIS Server instance {}'
+                .format(ags_instance) if ags_instance else ''
+            )
+        )
     return username, password
 
 
 def import_sde_connection_file(ags_connection_file, sde_connection_file):
-    log.info('Importing SDE connection file {} to ArcGIS Server connection file {})'
-             .format(sde_connection_file, ags_connection_file))
+    log.info(
+        'Importing SDE connection file {} to ArcGIS Server connection file {})'
+        .format(sde_connection_file, ags_connection_file)
+    )
 
     import arcpy
     data_store_name = os.path.splitext(os.path.basename(sde_connection_file))[0]
@@ -170,7 +233,8 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
             "DATABASE",
             data_store_name,
             sde_connection_file,
-            sde_connection_file)
+            sde_connection_file
+        )
     except StandardError as e:
         if e.message == 'Client database entry is already registered.':
             log.warn(e.message)
