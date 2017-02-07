@@ -8,7 +8,7 @@ setup(
         'requests',
         'PyYAML'
     ],
-    url='https://github.austintexas.gov/pughl/ags-service-publisher',
+    url='https://github.austintexas.gov/ctm-egs/ags-service-publisher',
     license='',
     author='Logan Pugh',
     author_email='logan.pugh@austintexas.gov',
