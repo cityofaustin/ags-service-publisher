@@ -34,13 +34,14 @@ def get_data_sources(mxd_path):
     import arcpy
     mxd = arcpy.mapping.MapDocument(mxd_path)
     layers = arcpy.mapping.ListLayers(mxd)
+    layers.extend(arcpy.mapping.ListTableViews(mxd))
     for layer in layers:
-        if layer.supports('workspacePath'):
+        if hasattr(layer, 'workspacePath'):
             user = 'n/a'
             database = 'n/a'
             version = 'n/a'
-            definition_query = layer.definitionQuery if layer.supports('definitionQuery') else 'n/a'
-            if layer.supports('serviceProperties'):
+            definition_query = layer.definitionQuery if hasattr(layer, 'definitionQuery') else 'n/a'
+            if hasattr(layer, 'serviceProperties'):
                 service_props = layer.serviceProperties
                 user = service_props.get('UserName', 'n/a')
                 version = service_props.get('Version', 'n/a')
@@ -76,8 +77,9 @@ def update_data_sources(mxd_path, data_source_mappings):
     import arcpy
     mxd = arcpy.mapping.MapDocument(mxd_path)
     layers = arcpy.mapping.ListLayers(mxd)
+    layers.extend(arcpy.mapping.ListTableViews(mxd))
     for layer in layers:
-        if layer.supports('workspacePath'):
+        if hasattr(layer, 'workspacePath'):
             try:
                 new_workspace_path = data_source_mappings[layer.workspacePath]
                 log.info(
