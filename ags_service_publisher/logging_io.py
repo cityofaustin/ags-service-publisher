@@ -10,7 +10,7 @@ default_log_dir = os.getenv(
 
 def setup_logger(namespace=None, level='DEBUG', handler=None):
     logger = logging.getLogger(namespace)
-    logger.setLevel(logging.getLevelName(level))
+    logger.setLevel(level)
     logger.addHandler(logging.NullHandler() if handler is None else handler)
     return logger
 
@@ -25,13 +25,14 @@ def setup_console_log_handler(logger=None, verbose=False):
     has_console_handler = False
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
-            console_handler = logger.handlers[0]
+            console_handler = handler
+            console_handler.setLevel(log_console_level)
             has_console_handler = True
             break
     if not has_console_handler:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(logging.Formatter(log_console_format))
-        console_handler.setLevel(logging.getLevelName(log_console_level))
+        console_handler.setLevel(log_console_level)
         logger.addHandler(console_handler)
     return console_handler
 
@@ -56,7 +57,7 @@ def setup_file_log_handler(logger=None, base_filename=None, log_dir=default_log_
     log.debug('Logging to file: {}'.format(log_file_path))
     log_file_handler = logging.FileHandler(log_file_path, mode='w')
     log_file_handler.setFormatter(logging.Formatter(log_file_format))
-    log_file_handler.setLevel(logging.getLevelName(log_file_level))
+    log_file_handler.setLevel(log_file_level)
     logger.addHandler(log_file_handler)
     return log_file_handler
 
