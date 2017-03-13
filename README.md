@@ -30,7 +30,7 @@ of your ArcGIS Server instances.
 
   1. Clone this repository to a local directory
   2. Open a Windows command prompt in the local directory
-  3. Type `pip install -r requirements.txt`
+  3. Type `pip install -e .`
   4. Create a folder named `config` in the local directory
   5. Create a file named [`userconfig.yml`](#userconfigyml) in the `config` folder, and populate it with a top-level
      `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and `prod`.
