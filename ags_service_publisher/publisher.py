@@ -253,6 +253,7 @@ def publish_service(
     import arcpy
     arcpy.env.overwriteOutput = True
 
+    original_service_name = service_name
     service_name = '{}{}{}'.format(service_prefix, service_name, service_suffix)
 
     log.info(
@@ -268,7 +269,7 @@ def publish_service(
         log.debug('Creating SDDraft file: {}'.format(sddraft))
 
         if service_type == 'MapServer':
-            mxd_path = os.path.join(source_dir, service_name + '.mxd')
+            mxd_path = os.path.join(source_dir, original_service_name + '.mxd')
             mxd = arcpy.mapping.MapDocument(mxd_path)
             arcpy.mapping.CreateMapSDDraft(
                 mxd,
@@ -284,7 +285,7 @@ def publish_service(
             analysis = arcpy.mapping.AnalyzeForSD(sddraft)
 
         elif service_type == 'GeocodeServer':
-            locator_path = os.path.join(source_dir, service_name)
+            locator_path = os.path.join(source_dir, original_service_name)
             if service_properties.get('rebuild_locators'):
                 log.info('Rebuilding locator {}'.format(locator_path))
                 arcpy.RebuildAddressLocator_geocoding(locator_path)
