@@ -208,6 +208,15 @@ environments:
     python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
     ```
 
+- Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file, adding a
+  "`_temp`" suffix to the published service names:
+
+    ```
+    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'], service_suffix='_temp')"
+    ```
+
+  - **Note:** Similarly, a prefix can also be specified using `service_prefix`.
+
 ### Clean up services
 
 - Clean up (remove) any existing services in the `CouncilDistrictMap` service folder that have not been defined in the
