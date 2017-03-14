@@ -465,6 +465,7 @@ def find_mxd_data_sources(
     included_services=asterisk_tuple, excluded_services=empty_tuple,
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    include_staging_mxds=True,
     warn_on_validation_errors=False,
     config_dir=default_config_dir
 ):
@@ -491,8 +492,7 @@ def find_mxd_data_sources(
                     raise RuntimeError(message)
             for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
                 if service_type == 'MapServer':
-                    mxd_path = source_info[service_name]['source_file']
-                    if mxd_path:
+                    def generate_mxd_data_sources_report_rows(mxd_path, mxd_type):
                         for (
                             layer_name,
                             dataset_name,
@@ -513,6 +513,7 @@ def find_mxd_data_sources(
                                     env_name,
                                     service_name,
                                     mxd_path,
+                                    mxd_type,
                                     layer_name,
                                     dataset_name,
                                     user,
@@ -521,8 +522,17 @@ def find_mxd_data_sources(
                                     workspace_path,
                                     definition_query
                                 )
+
+                    if include_staging_mxds:
+                        for staging_mxd_path in source_info[service_name]['staging_files']:
+                            for row in generate_mxd_data_sources_report_rows(staging_mxd_path, 'staging'):
+                                yield row
+                    source_mxd_path = source_info[service_name]['source_file']
+                    if source_mxd_path:
+                        for row in generate_mxd_data_sources_report_rows(source_mxd_path, 'source'):
+                            yield row
                     else:
-                        log.warn('No source MXD found for service {}/{}!'.format(service_type, service_name))
+                        log.warn('No source MXD found for service {}/{} in the {} environment!'.format(config_name, service_name, env_name))
                 else:
                     log.debug(
                         'Unsupported service type {} of service {} will be skipped'

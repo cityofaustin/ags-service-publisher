@@ -192,6 +192,7 @@ def run_mxd_data_sources_report(
     included_services=asterisk_tuple, excluded_services=empty_tuple,
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+    include_staging_mxds=True,
     output_filename=None,
     output_format='csv',
     warn_on_validation_errors=False,
@@ -222,6 +223,7 @@ def run_mxd_data_sources_report(
             included_services, excluded_services,
             included_envs, excluded_envs,
             included_datasets, excluded_datasets,
+            include_staging_mxds,
             warn_on_validation_errors,
             config_dir
         )
@@ -235,6 +237,7 @@ def run_mxd_data_sources_report(
                 'Environment',
                 'Service Name',
                 'MXD Path',
+                'MXD Type',
                 'Layer Name',
                 'Dataset Name',
                 'User',
@@ -243,10 +246,10 @@ def run_mxd_data_sources_report(
                 'Workspace Path',
                 'Definition Query'
             )
-            rows = report_data
             csv_writer = csv.writer(csv_file, lineterminator='\n')
             csv_writer.writerow(header_row)
-            csv_writer.writerows(rows)
+            for row in report_data:
+                csv_writer.writerow(row)
     else:
         raise RuntimeError('Unsupported output format: {}'.format(output_format))
 
