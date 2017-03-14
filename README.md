@@ -192,27 +192,27 @@ environments:
 - Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
+    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
     ```
 
 - Same as above, but publish all **except** for the `dev` environment (e.g. `test` and `prod`) using `excluded_envs`:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], excluded_envs=['dev'])"
+    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], excluded_envs=['dev'])"
     ```
 
 - Publish all of the environments in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file, but
   **only** publish the `CouncilDistrictsFill` service:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
+    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
     ```
 
 - Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file, adding a
   "`_temp`" suffix to the published service names:
 
     ```
-    python -c "import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'], service_suffix='_temp')"
+    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'], service_suffix='_temp')"
     ```
 
   - **Note:** Similarly, a prefix can also be specified using `service_prefix`.
@@ -223,7 +223,7 @@ environments:
    `CouncilDistrictMap.yml` configuration file:
 
    ```
-   python -c "import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])"
+   python -c "from ags_service_publisher import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])"
    ```
 
 **Note:** To clean up services, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
@@ -235,14 +235,14 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
    service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap.csv')"
+    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap.csv')"
     ```
 
 - Generate a report in CSV format of all the usages of a dataset named `BOUNDARIES.single_member_districts` within all
    services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
 
    ```
-   python -c "import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts.csv')"
+   python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts.csv')"
    ```
 
 **Note:** To generate reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
@@ -254,7 +254,7 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
    [`userconfig.yml`](#userconfigyml) that expires in 30 days:
    
    ```
-   python -c "import runner; runner.generate_tokens(reuse_credentials=True, expiration=43200)"
+   python -c "from ags_service_publisher import runner; runner.generate_tokens(reuse_credentials=True, expiration=43200)"
    ```
    **Notes:**
      - This will prompt you for your credentials (ArcGIS Server username and password) unless the `username` and
@@ -273,7 +273,7 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
 `dev` environment specified within [`userconfig.yml`](#userconfigyml):
 
    ```
-   python -c "import runner; runner.batch_import_connection_files(['*COUNCILDISTRICTMAP_SERVICE*'], included_envs=['dev'])"
+   python -c "from ags_service_publisher import runner; runner.batch_import_connection_files(['*COUNCILDISTRICTMAP_SERVICE*'], included_envs=['dev'])"
    ```
    **Note:** This looks for `.sde` files located within the directory specified by `sde_connections_dir` for each
    environment specified within [`userconfig.yml`](#userconfigyml).
