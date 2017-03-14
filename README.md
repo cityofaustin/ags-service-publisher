@@ -231,21 +231,56 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate reports
 
+#### MXD Data Sources report
+
+This report type inspects map document (MXD) files corresponding to services defined in YAML configuration files and
+reports which layers are present in each MXD as well as information about each layer's data source (workspace path,
+database, user, version, SQL where clause, etc.).
+
+Useful for determining what data sources are present in an MXD prior to publishing it, so that you
+can specify data source mappings, register data sources with ArcGIS Server, or look for potential problems with SQL
+where clauses.
+
+##### Examples:
+
+- Generate a report in CSV format of all the layers and data sources in each staging and source MXD corresponding to
+   each service defined in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
+   
+   ```
+   python -c "from ags_service_publisher import runner; runner.run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report.csv')"
+   ```
+   
+- Same as above, but exclude staging MXDs (MXDs located within the `staging_dir`) from the report:
+
+   ```
+   python -c "from ags_service_publisher import runner; runner.run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], include_staging_mxds=False, output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report-no-staging.csv')"
+   ```
+
+#### Dataset Usages report
+
+This report type inspects services on ArcGIS Server and reports which datasets (feature classes, tables,
+etc.) are referenced by each service.
+
+Useful for determining which services would be impacted by a change to one or more
+particular datasets.
+
+##### Examples:
+
 - Generate a report in CSV format of all the datasets referenced by all services within the `CouncilDistrictMap`
    service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap.csv')"
+    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Dataset-Usages-Report.csv')"
     ```
 
 - Generate a report in CSV format of all the usages of a dataset named `BOUNDARIES.single_member_districts` within all
    services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
 
    ```
-   python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts.csv')"
+   python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts-Dataset-Usages-Report.csv')"
    ```
 
-**Note:** To generate reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
+**Note:** To generate Dataset Usage reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
 Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate tokens
