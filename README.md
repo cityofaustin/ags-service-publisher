@@ -24,7 +24,7 @@ of your ArcGIS Server instances.
   - ArcGIS Desktop 10.3+
   - Python 2.7+
   - [pip][2]
-  - [PyYAML][3] 3.11 (will be installed by pip as described in the Setup Instructions)
+  - [PyYAML][3] 3.12 (will be installed by pip as described in the Setup Instructions)
 
 ## Setup instructions
 
