@@ -12,7 +12,7 @@ log = setup_logger(__name__)
 
 default_config_dir = os.getenv(
     'AGS_SERVICE_PUBLISHER_CONFIG_DIR',
-    os.path.abspath(os.path.join(os.path.dirname(__file__), 'config'))
+    os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config'))
 )
 
 
