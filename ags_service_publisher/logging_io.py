@@ -4,7 +4,7 @@ import os
 
 default_log_dir = os.getenv(
     'AGS_SERVICE_PUBLISHER_LOG_DIR',
-    os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
+    os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs'))
 )
 
 
