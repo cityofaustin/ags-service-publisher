@@ -24,7 +24,9 @@ of your ArcGIS Server instances.
   - ArcGIS Desktop 10.3+
   - Python 2.7+
   - [pip][2]
-  - [PyYAML][3] 3.12 (will be installed by pip as described in the Setup Instructions)
+  - Various Python libraries (will be installed by pip as described in the Setup Instructions):
+      - [PyYAML][3] 3.12
+      - [requests][4] 2.13
 
 ## Setup instructions
 
@@ -39,7 +41,7 @@ of your ArcGIS Server instances.
        - `ags_instances`: contains a mapping of ArcGIS Server instance names, each having the following properties:
          - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
          - `ags_connection`: Path to an `.ags` connection file for each instance.
-         - `token` (optional): [ArcGIS Admin REST API token][4] (see the ["Generate tokens"](#generate-tokens) section below
+         - `token` (optional): [ArcGIS Admin REST API token][5] (see the ["Generate tokens"](#generate-tokens) section below
             for more details)
        - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
          [import](#import-sde-connection-files) to each of the instances in that environment
@@ -76,7 +78,7 @@ of your ArcGIS Server instances.
             - `rebuild_locators`: Whether to rebuild locators before publishing them (only applies to `GeocodeServer`
               services).
             - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
-              [Generate Map Server Cache Tiling Scheme][5] geoprocessing tool. Used for specifying the tile scheme of
+              [Generate Map Server Cache Tiling Scheme][6] geoprocessing tool. Used for specifying the tile scheme of
               cached map services.
             - `cache_tile_format`: Format for cached tile images, may be one of the following: `PNG`, `PNG8`, `PNG24`,
               `PNG32`, `JPEG`, `MIXED`, `LERC`
@@ -285,7 +287,7 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate tokens
 
-- Generate an [ArcGIS Admin REST API token][4] for each ArcGIS Server instance defined in
+- Generate an [ArcGIS Admin REST API token][5] for each ArcGIS Server instance defined in
    [`userconfig.yml`](#userconfigyml) that expires in 30 days:
    
    ```
@@ -315,7 +317,7 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ## Tips
 
-- You can use [`fnmatch`][6]-style wildcards in any of the strings in the list arguments to the runner functions, so,
+- You can use [`fnmatch`][7]-style wildcards in any of the strings in the list arguments to the runner functions, so,
   for example, you could put `included_services=['CouncilDistrict*']` and both the `CouncilDistrictMap` and
   `CouncilDistrictsFill` services would be published.
 - All of the runner functions accept a `verbose` argument that, if set to `True`, will output more granular information
@@ -338,6 +340,7 @@ Server instance defined in [`userconfig.yml`](#userconfigyml).
 [1]: https://en.wikipedia.org/wiki/YAML
 [2]: https://pip.pypa.io/en/stable/installing/
 [3]: https://pypi.python.org/pypi/PyYAML
-[4]: http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/
-[5]: http://desktop.arcgis.com/en/arcmap/latest/tools/server-toolbox/generate-map-server-cache-tiling-scheme.htm
-[6]: https://docs.python.org/2/library/fnmatch.html
+[4]: http://docs.python-requests.org/en/master/
+[5]: http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/
+[6]: http://desktop.arcgis.com/en/arcmap/latest/tools/server-toolbox/generate-map-server-cache-tiling-scheme.htm
+[7]: https://docs.python.org/2/library/fnmatch.html
