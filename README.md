@@ -101,12 +101,12 @@ of your ArcGIS Server instances.
             - `enabled`: Whether to enable feature access
             - `capabilities`: A list of capabilities to enable on the feature service. Can be one or more of the
             following:
-            - `query`
-            - `create`
-            - `update`
-            - `delete`
-            - `uploads`
-            - `editing`
+                - `query`
+                - `create`
+                - `update`
+                - `delete`
+                - `uploads`
+                - `editing`
         
         Service properties may be set at either at the service folder level or at the service level:
         
