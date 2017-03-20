@@ -1,5 +1,6 @@
 import os
 import getpass
+import json
 from xml.etree import ElementTree
 
 import requests
@@ -16,7 +17,6 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
     username, password = prompt_for_credentials(username, password, ags_instance)
     log.info('Generating token (URL: {}, user: {})'.format(server_url, username))
     url = urljoin(server_url, '/arcgis/admin/generateToken')
-    log.debug(url)
     try:
         r = requests.post(
             url,
@@ -28,6 +28,7 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
                 'f': 'json'
             }
         )
+        log.debug('Request URL: {}'.format(r.url))
         assert r.status_code == 200
         data = r.json()
         if data.get('status') == 'error':
@@ -45,9 +46,9 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
 def list_service_folders(server_url, token):
     log.debug('Listing service folders (URL: {})'.format(server_url))
     url = urljoin(server_url, '/arcgis/admin/services')
-    log.debug(url)
     try:
         r = requests.get(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
         if data.get('status') == 'error':
@@ -72,9 +73,9 @@ def list_services(server_url, token, service_folder=None):
             )
         )
     )
-    log.debug(url)
     try:
         r = requests.get(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
         if data.get('status') == 'error':
@@ -113,9 +114,9 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
             )
         )
     )
-    log.debug(url)
     try:
         r = requests.get(url, {'token': token})
+        log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.text
         datasets = parse_datasets_from_service_manifest(data)
@@ -130,7 +131,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
             )
     except:
         log.exception(
-            'An error occurred while listing workspaces for service {}{}'
+            'An error occurred while listing workspaces for service {}/{}'
             .format(service_folder, service_name)
         )
         raise
@@ -151,9 +152,9 @@ def delete_service(server_url, token, service_name, service_folder=None, service
             )
         )
     )
-    log.debug(url)
     try:
         r = requests.post(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
         if data.get('status') == 'error':
@@ -164,10 +165,215 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         )
     except:
         log.exception(
-            'An error occurred while deleting service {}{}'
+            'An error occurred while deleting service {}/{}'
             .format(service_folder, service_name)
         )
         raise
+
+
+def get_service_info(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.debug('Getting info for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/rest/services',
+                    service_folder,
+                    '{}/{}'.format(service_name, service_type)
+                ) if part
+            )
+        )
+    )
+    try:
+        r = requests.get(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'. format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        if data.get('error'):
+            raise RuntimeError(data.get('error').get('message'))
+        log.debug(
+            'Service {} info (URL {}, Folder: {}): \n{}'
+            .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
+        )
+        return data
+    except:
+        log.exception(
+            'An error occurred while getting info for service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def get_service_status(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.debug('Getting status of service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'status'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = requests.get(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        log.debug(
+            'Service {} status (URL {}, Folder: {}): {} (configured), {} (run-time)'
+            .format(service_name, server_url, service_folder, data.get('configuredState'), data.get('realTimeState'))
+        )
+        return data
+    except:
+        log.exception(
+            'An error occurred while getting the status of service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def test_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.info('Testing service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    if service_type == 'MapServer':
+        service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
+        if service_status.get('realTimeState') == 'STOPPED':
+            log.warn(
+                'Service {}/{} is not running!'
+                .format(service_folder, service_name)
+            )
+        else:
+            service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
+            initial_extent = json.dumps(service_info.get('initialExtent'))
+            url = urljoin(
+                server_url,
+                '/'.join(
+                    (
+                        part for part in (
+                            '/arcgis/rest/services',
+                            service_folder,
+                            '{}/{}'.format(service_name, service_type),
+                            'identify'
+                        ) if part
+                    )
+                )
+            )
+            try:
+                r = requests.get(
+                    url,
+                    params={
+                        'token': token,
+                        'f': 'json',
+                        'geometry': initial_extent,
+                        'geometryType': 'esriGeometryEnvelope',
+                        'tolerance': '0',
+                        'mapExtent': initial_extent,
+                        'imageDisplay': '400,300,96',
+                        'returnGeometry': 'false'
+                    }
+                )
+                log.debug('Request URL: {}'.format(r.url))
+                assert (r.status_code == 200)
+                data = r.json()
+                if data.get('error'):
+                    raise RuntimeError(data.get('error').get('message'))
+                log.info('Service {}/{} tested successfully'.format(service_folder, service_name))
+            except:
+                log.exception(
+                    'An error occurred while testing service {}/{}'
+                    .format(service_folder, service_name)
+                )
+                raise
+    else:
+        log.warn(
+            'Unsupported service type {} for service {} in folder {}'
+            .format(service_type, service_name, service_folder)
+        )
+
+
+def stop_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.info('Stopping service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'stop'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = requests.post(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        log.info(
+            'Service {} successfully stopped (URL {}, Folder: {})'
+            .format(service_name, server_url, service_folder)
+        )
+    except:
+        log.exception(
+            'An error occurred while stopping service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def start_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.info('Starting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'start'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = requests.post(url, {'token': token, 'f': 'json'})
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        log.info(
+            'Service {} successfully started (URL {}, Folder: {})'
+            .format(service_name, server_url, service_folder)
+        )
+    except:
+        log.exception(
+            'An error occurred while starting service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def restart_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.info('Restarting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    stop_service(server_url, token, service_name, service_folder, service_type)
+    start_service(server_url, token, service_name, service_folder, service_type)
+    if get_service_status(server_url, token, service_name, service_folder, service_type).get('realTimeState') == 'STOPPED':
+        raise RuntimeError('Service {} was not successfully restarted!'.format(service_name))
 
 
 def parse_datasets_from_service_manifest(data):

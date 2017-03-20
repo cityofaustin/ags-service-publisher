@@ -6,7 +6,7 @@ import tempfile
 from copy import deepcopy
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces
+from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces, restart_service, get_service_status, test_service
 from config_io import get_config, get_configs, default_config_dir
 from datasources import update_data_sources, get_data_sources
 from extrafilters import superfilter
@@ -457,6 +457,74 @@ def find_dataset_usages(
                                 )
 
 
+def restart_services(
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    include_running_services=True,
+    config_dir=default_config_dir
+):
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info('Restarting services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if superfilter((service_name,), included_services, excluded_services):
+                        if not include_running_services:
+                            status = get_service_status(server_url, token, service_name, service_folder, service_type)
+                            if status.get('configuredState') == 'STARTED':
+                                pass
+                            restart_service(server_url, token, service_name, service_folder, service_type)
+                        restart_service(server_url, token, service_name, service_folder, service_type)
+
+
+def test_services(
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    warn_on_errors=False,
+    config_dir=default_config_dir
+):
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info('Testing services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if superfilter((service_name,), included_services, excluded_services):
+                        try:
+                            test_service(server_url, token, service_name, service_folder, service_type)
+                        except StandardError as e:
+                            if not warn_on_errors:
+                                raise
+                            log.warn(e.message)
+
+
 def find_mxd_data_sources(
     included_configs=asterisk_tuple, excluded_configs=empty_tuple,
     included_users=asterisk_tuple, excluded_users=empty_tuple,
@@ -604,10 +672,10 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
 
 def normalize_services(services, default_service_properties):
     for service in services:
-        yield get_service_info(service, default_service_properties)
+        yield normalize_service(service, default_service_properties)
 
 
-def get_service_info(service, default_service_properties):
+def normalize_service(service, default_service_properties):
     is_mapping = isinstance(service, collections.Mapping)
     service_name = service.keys()[0] if is_mapping else service
     merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}

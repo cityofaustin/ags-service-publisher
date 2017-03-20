@@ -342,3 +342,57 @@ def batch_import_sde_connection_files(
                     ags_connection,
                     os.path.join(sde_connections_dir, sde_connection_file + '.sde')
                 )
+
+
+def batch_restart_services(
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    verbose=False,
+    quiet=False,
+    include_running_services=True,
+    config_dir=default_config_dir
+):
+    if not quiet:
+        setup_console_log_handler(root_logger, verbose)
+    if not verbose:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+    log.debug('Using config directory: {}'.format(config_dir))
+
+    publisher.restart_services(
+        included_services, excluded_services,
+        included_service_folders, excluded_service_folders,
+        included_instances, excluded_instances,
+        included_envs, excluded_envs,
+        include_running_services,
+        config_dir
+    )
+
+
+def batch_test_services(
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    warn_on_errors=False,
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
+    if not quiet:
+        setup_console_log_handler(root_logger, verbose)
+    if not verbose:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+
+    log.info('Batch testing services')
+    log.debug('Using config directory: {}'.format(config_dir))
+
+    publisher.test_services(
+        included_services, excluded_services,
+        included_service_folders, excluded_service_folders,
+        included_instances, excluded_instances,
+        included_envs, excluded_envs,
+        warn_on_errors,
+        config_dir
+    )
