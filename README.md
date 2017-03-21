@@ -295,11 +295,39 @@ particular datasets.
 - Generate a report in CSV format of all the usages of a dataset named `BOUNDARIES.single_member_districts` within all
     services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
 
-   ```
-   python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts-Dataset-Usages-Report.csv')"
-   ```
+    ```
+    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts-Dataset-Usages-Report.csv')"
+    ```
 
 **Note:** To generate Dataset Usage reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
+
+#### Service Health Report
+
+This report type checks the health of services on ArcGIS Server and reports whether each service is started or stopped.
+
+Additionally, for MapServer and GeocodeServer services, a query is run against each service and information about the
+results, including response time and any error messages, are added to the report.
+
+Useful for determining which services are stopped, running slowly, or returning errors.
+
+##### Examples:
+
+- Generate a report in CSV format of the health status of all the services within the `CouncilDistrictMap` service
+    folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import runner; runner.run_service_health_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Health-Report.csv')"
+    ```
+
+- Generate a report in CSV format of the health status of all services on the `coagisd1` ArcGIS Server instance defined
+    in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import runner; runner.run_service_health_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Health-Report.csv')"
+    ```
+
+**Note:** To generate Service Health reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
     for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate tokens

@@ -1,6 +1,7 @@
 import os
 import getpass
 import json
+import time
 from xml.etree import ElementTree
 
 import requests
@@ -195,7 +196,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         if data.get('error'):
             raise RuntimeError(data.get('error').get('message'))
         log.debug(
-            'Service {} info (URL {}, Folder: {}): \n{}'
+            'Service {} info (URL {}, Folder: {}): {}'
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
@@ -230,8 +231,8 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         if data.get('status') == 'error':
             raise RuntimeError(data.get('messages'))
         log.debug(
-            'Service {} status (URL {}, Folder: {}): {} (configured), {} (run-time)'
-            .format(service_name, server_url, service_folder, data.get('configuredState'), data.get('realTimeState'))
+            'Service {} status (URL {}, Folder: {}): {}'
+            .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
     except:
@@ -242,62 +243,117 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         raise
 
 
-def test_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
-    log.info('Testing service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
-    if service_type == 'MapServer':
+def test_service(server_url, token, service_name, service_folder=None, service_type='MapServer', warn_on_errors=False):
+    log.info('Testing {} service {} (URL {}, Folder: {})'.format(service_type, service_name, server_url, service_folder))
+
+    def perform_service_health_check(operation, params, service_status):
+        url = urljoin(
+            server_url,
+            '/'.join(
+                (
+                    part for part in (
+                        '/arcgis/rest/services',
+                        service_folder,
+                        '{}/{}'.format(service_name, service_type),
+                        operation
+                    ) if part
+                )
+            )
+        )
+        start_time = time.time()
+        r = requests.get(
+            url,
+            params=params
+        )
+        end_time = time.time()
+        response_time = end_time - start_time
+        log.debug(
+            'Request URL: {}, HTTP Status: {}, Response Time: {:.2f}'
+            .format(r.url, r.status_code, response_time)
+        )
+        data = r.json()
+        error = data.get('error')
+        error_message = error.get('message') if error else None
+        if not warn_on_errors:
+            r.raise_for_status()
+            if error_message:
+                raise RuntimeError(error_message)
+        else:
+            if not error_message and r.status_code == 200:
+                log.info('{} service {}/{} tested successfully'.format(service_type, service_folder, service_name))
+            elif error_message:
+                log.warn(
+                    'An error occurred while testing {} service {}/{}: {}'
+                    .format(service_type, service_folder, service_name, error_message)
+                )
+            elif r.status_code != 200:
+                log.warn(
+                    '{} service {}/{} responded with a status code of {} ({})'
+                    .format(service_type, service_folder, service_name, r.status_code, r.reason)
+                )
+            return {
+                'request_url': r.url,
+                'request_method': r.request.method,
+                'http_status_code': r.status_code,
+                'http_status_reason': r.reason,
+                'response_time': response_time,
+                'configured_state': service_status.get('configuredState'),
+                'realtime_state': service_status.get('realTimeState'),
+                'error_message': error_message
+            }
+
+    try:
         service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
         if service_status.get('realTimeState') == 'STOPPED':
             log.warn(
-                'Service {}/{} is not running!'
-                .format(service_folder, service_name)
+                '{} service {}/{} is not running!'
+                .format(service_type, service_folder, service_name)
             )
-        else:
+            return {
+                'configured_state': service_status.get('configuredState'),
+                'realtime_state': service_status.get('realTimeState')
+            }
+        if service_type == 'MapServer':
             service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
             initial_extent = json.dumps(service_info.get('initialExtent'))
-            url = urljoin(
-                server_url,
-                '/'.join(
-                    (
-                        part for part in (
-                            '/arcgis/rest/services',
-                            service_folder,
-                            '{}/{}'.format(service_name, service_type),
-                            'identify'
-                        ) if part
-                    )
-                )
+            return perform_service_health_check('identify', {
+                'token': token,
+                'f': 'json',
+                'geometry': initial_extent,
+                'geometryType': 'esriGeometryEnvelope',
+                'tolerance': '0',
+                'mapExtent': initial_extent,
+                'imageDisplay': '400,300,96',
+                'returnGeometry': 'false'
+            }, service_status)
+        elif service_type == 'GeocodeServer':
+            service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
+            address_fields = service_info.get('addressFields')
+            first_address_field_name = address_fields[0].get('name')
+            return perform_service_health_check('findAddressCandidates', {
+                'token': token,
+                'f': 'json',
+                first_address_field_name: '100 Main St'
+            }, service_status)
+        else:
+            log.warn(
+                'Unsupported service type {} for service {} in folder {}'
+                .format(service_type, service_name, service_folder)
             )
-            try:
-                r = requests.get(
-                    url,
-                    params={
-                        'token': token,
-                        'f': 'json',
-                        'geometry': initial_extent,
-                        'geometryType': 'esriGeometryEnvelope',
-                        'tolerance': '0',
-                        'mapExtent': initial_extent,
-                        'imageDisplay': '400,300,96',
-                        'returnGeometry': 'false'
-                    }
-                )
-                log.debug('Request URL: {}'.format(r.url))
-                assert (r.status_code == 200)
-                data = r.json()
-                if data.get('error'):
-                    raise RuntimeError(data.get('error').get('message'))
-                log.info('Service {}/{} tested successfully'.format(service_folder, service_name))
-            except:
-                log.exception(
-                    'An error occurred while testing service {}/{}'
-                    .format(service_folder, service_name)
-                )
-                raise
-    else:
-        log.warn(
-            'Unsupported service type {} for service {} in folder {}'
-            .format(service_type, service_name, service_folder)
+            return {
+                'configured_state': service_status.get('configuredState'),
+                'realtime_state': service_status.get('realTimeState')
+            }
+    except StandardError as e:
+        log.exception(
+            'An error occurred while testing {} service {}/{}'
+            .format(service_type, service_folder, service_name)
         )
+        if not warn_on_errors:
+            raise
+        return {
+            'error_message': e.message
+        }
 
 
 def stop_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):

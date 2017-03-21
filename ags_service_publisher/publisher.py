@@ -517,12 +517,23 @@ def test_services(
                     service_name = service['serviceName']
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
-                        try:
-                            test_service(server_url, token, service_name, service_folder, service_type)
-                        except StandardError as e:
-                            if not warn_on_errors:
-                                raise
-                            log.warn(e.message)
+                        test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors)
+                        result = (
+                            env_name,
+                            ags_instance,
+                            service_folder,
+                            service_name,
+                            service_type,
+                            test_data.get('configured_state'),
+                            test_data.get('realtime_state'),
+                            test_data.get('request_url'),
+                            test_data.get('request_method'),
+                            test_data.get('http_status_code'),
+                            test_data.get('http_status_reason'),
+                            test_data.get('error_message'),
+                            test_data.get('response_time')
+                        )
+                        yield result
 
 
 def find_mxd_data_sources(
@@ -600,7 +611,10 @@ def find_mxd_data_sources(
                         for row in generate_mxd_data_sources_report_rows(source_mxd_path, 'source'):
                             yield row
                     else:
-                        log.warn('No source MXD found for service {}/{} in the {} environment!'.format(config_name, service_name, env_name))
+                        log.warn(
+                            'No source MXD found for service {}/{} in the {} environment!'
+                            .format(config_name, service_name, env_name)
+                        )
                 else:
                     log.debug(
                         'Unsupported service type {} of service {} will be skipped'
@@ -686,9 +700,8 @@ def normalize_service(service, default_service_properties):
             merged_service_properties.update(service_properties)
         else:
             log.warn(
-                'No service-level properties specified for service {} '
-                'even though it was specified as a mapping'
-                    .format(service_name)
+                'No service-level properties specified for service {} even though it was specified as a mapping'
+                .format(service_name)
             )
     else:
         log.debug('No service-level properties specified for service {}'.format(service_name))
