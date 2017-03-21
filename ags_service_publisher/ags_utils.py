@@ -48,7 +48,7 @@ def list_service_folders(server_url, token):
     log.debug('Listing service folders (URL: {})'.format(server_url))
     url = urljoin(server_url, '/arcgis/admin/services')
     try:
-        r = requests.get(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -75,7 +75,7 @@ def list_services(server_url, token, service_folder=None):
         )
     )
     try:
-        r = requests.get(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -116,7 +116,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         )
     )
     try:
-        r = requests.get(url, {'token': token})
+        r = requests.post(url, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.text
@@ -154,7 +154,7 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         )
     )
     try:
-        r = requests.post(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -187,7 +187,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         )
     )
     try:
-        r = requests.get(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'. format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -224,7 +224,7 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         )
     )
     try:
-        r = requests.get(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -261,10 +261,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
             )
         )
         start_time = time.time()
-        r = requests.get(
-            url,
-            params=params
-        )
+        r = requests.post(url, params=params, data={'token': token})
         end_time = time.time()
         response_time = end_time - start_time
         log.debug(
@@ -316,25 +313,30 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
         if service_type == 'MapServer':
             service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
             initial_extent = json.dumps(service_info.get('initialExtent'))
-            return perform_service_health_check('identify', {
-                'token': token,
-                'f': 'json',
-                'geometry': initial_extent,
-                'geometryType': 'esriGeometryEnvelope',
-                'tolerance': '0',
-                'mapExtent': initial_extent,
-                'imageDisplay': '400,300,96',
-                'returnGeometry': 'false'
-            }, service_status)
+            return perform_service_health_check(
+                'identify',
+                {
+                    'f': 'json',
+                    'geometry': initial_extent,
+                    'geometryType': 'esriGeometryEnvelope',
+                    'tolerance': '0',
+                    'mapExtent': initial_extent,
+                    'imageDisplay': '400,300,96',
+                    'returnGeometry': 'false'
+                },
+                service_status
+            )
         elif service_type == 'GeocodeServer':
             service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
             address_fields = service_info.get('addressFields')
             first_address_field_name = address_fields[0].get('name')
-            return perform_service_health_check('findAddressCandidates', {
-                'token': token,
-                'f': 'json',
-                first_address_field_name: '100 Main St'
-            }, service_status)
+            return perform_service_health_check(
+                'findAddressCandidates',
+                {
+                    'f': 'json',
+                    first_address_field_name: '100 Main St'
+                },
+                service_status)
         else:
             log.warn(
                 'Unsupported service type {} for service {} in folder {}'
@@ -372,7 +374,7 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
         )
     )
     try:
-        r = requests.post(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -406,7 +408,7 @@ def start_service(server_url, token, service_name, service_folder=None, service_
         )
     )
     try:
-        r = requests.post(url, {'token': token, 'f': 'json'})
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
