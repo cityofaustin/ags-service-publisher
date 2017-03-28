@@ -54,7 +54,11 @@ def list_service_folders(server_url, token):
         data = r.json()
         if data.get('status') == 'error':
             raise RuntimeError(data.get('messages'))
-        service_folders = data['folders']
+        service_folders = data.get('folders')
+        log.debug(
+            'Service folders (URL {}): {}'
+            .format(r.url, json.dumps(service_folders, indent=4))
+        )
         return service_folders
     except:
         log.exception('An error occurred while listing service folders (URL: {})'.format(server_url))
@@ -81,6 +85,10 @@ def list_services(server_url, token, service_folder=None):
         data = r.json()
         if data.get('status') == 'error':
             raise RuntimeError(data.get('messages'))
+        log.debug(
+            '{} services (URL {}): {}'
+            .format(service_folder, r.url, json.dumps(data, indent=4))
+        )
         services = data['services']
         return services
     except:
@@ -336,7 +344,8 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                     'f': 'json',
                     first_address_field_name: '100 Main St'
                 },
-                service_status)
+                service_status
+            )
         else:
             log.warn(
                 'Unsupported service type {} for service {} in folder {}'
