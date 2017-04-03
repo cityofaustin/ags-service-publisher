@@ -283,29 +283,28 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
             r.raise_for_status()
             if error_message:
                 raise RuntimeError(error_message)
-        else:
-            if not error_message and r.status_code == 200:
-                log.info('{} service {}/{} tested successfully'.format(service_type, service_folder, service_name))
-            elif error_message:
-                log.warn(
-                    'An error occurred while testing {} service {}/{}: {}'
-                    .format(service_type, service_folder, service_name, error_message)
-                )
-            elif r.status_code != 200:
-                log.warn(
-                    '{} service {}/{} responded with a status code of {} ({})'
-                    .format(service_type, service_folder, service_name, r.status_code, r.reason)
-                )
-            return {
-                'request_url': r.url,
-                'request_method': r.request.method,
-                'http_status_code': r.status_code,
-                'http_status_reason': r.reason,
-                'response_time': response_time,
-                'configured_state': service_status.get('configuredState'),
-                'realtime_state': service_status.get('realTimeState'),
-                'error_message': error_message
-            }
+        if not error_message and r.status_code == 200:
+            log.info('{} service {}/{} tested successfully'.format(service_type, service_folder, service_name))
+        elif error_message:
+            log.warn(
+                'An error occurred while testing {} service {}/{}: {}'
+                .format(service_type, service_folder, service_name, error_message)
+            )
+        elif r.status_code != 200:
+            log.warn(
+                '{} service {}/{} responded with a status code of {} ({})'
+                .format(service_type, service_folder, service_name, r.status_code, r.reason)
+            )
+        return {
+            'request_url': r.url,
+            'request_method': r.request.method,
+            'http_status_code': r.status_code,
+            'http_status_reason': r.reason,
+            'response_time': response_time,
+            'configured_state': service_status.get('configuredState'),
+            'realtime_state': service_status.get('realTimeState'),
+            'error_message': error_message
+        }
 
     try:
         service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
