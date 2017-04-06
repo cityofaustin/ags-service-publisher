@@ -31,8 +31,9 @@ of your ArcGIS Server instances.
 ## Installation
 
 1. Clone this repository to a local directory
-2. Open a Windows command prompt in the local directory
-3. Type `pip install -e .`
+2. Add Python scripts directory to your PATH environment variable.  This is typically located at C:\Python<version>\ArcGIS<version>\Scripts 
+3. Open a Windows command prompt in the local directory
+4. Type `pip install -e .`
 
 ## Configuration
 
@@ -310,6 +311,8 @@ Additionally, for MapServer and GeocodeServer services, a query is run against e
 results, including response time and any error messages, are added to the report.
 
 Useful for determining which services are stopped, running slowly, or returning errors.
+
+**Note:**  The warn_on_errors argument can be set to true (i.e. warn_on_errors=true) when running this and any other function of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Health Report, as the script will halt if it encounters an error when processing any one service. 
 
 ##### Examples:
 
