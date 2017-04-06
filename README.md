@@ -31,7 +31,7 @@ of your ArcGIS Server instances.
 ## Installation
 
 1. Clone this repository to a local directory
-2. Add Python scripts directory to your PATH environment variable.  This is typically located at C:\Python<version>\ArcGIS<version>\Scripts 
+2. Add Python scripts directory to your PATH environment variable.  This is typically located at C:\Python(version)\ArcGIS(version)\Scripts 
 3. Open a Windows command prompt in the local directory
 4. Type `pip install -e .`
 
