@@ -312,7 +312,7 @@ results, including response time and any error messages, are added to the report
 
 Useful for determining which services are stopped, running slowly, or returning errors.
 
-**Note:**  The warn_on_errors argument can be set to true (i.e. warn_on_errors=true) when running this and any other function of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Health Report, as the script will halt if it encounters an error when processing any one service. 
+**Note:**  The warn_on_errors argument can be set to True (i.e. warn_on_errors=True) when running this and any other function of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Health Report, as the script will halt if it encounters an error when processing any one service. 
 
 ##### Examples:
 
