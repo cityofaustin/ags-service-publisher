@@ -327,6 +327,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                     'geometry': initial_extent,
                     'geometryType': 'esriGeometryEnvelope',
                     'tolerance': '0',
+                    'layers': 'all',
                     'mapExtent': initial_extent,
                     'imageDisplay': '400,300,96',
                     'returnGeometry': 'false'
