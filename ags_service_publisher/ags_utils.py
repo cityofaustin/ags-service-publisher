@@ -308,14 +308,16 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
 
     try:
         service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
-        if service_status.get('realTimeState') == 'STOPPED':
+        configured_state = service_status.get('configuredState'),
+        realtime_state = service_status.get('realTimeState')
+        if realtime_state != 'STARTED':
             log.warn(
-                '{} service {}/{} is not running!'
-                .format(service_type, service_folder, service_name)
+                '{} service {}/{} is not running (configured state: {}, realtime state: {})!'
+                .format(service_type, service_folder, service_name, configured_state, realtime_state)
             )
             return {
-                'configured_state': service_status.get('configuredState'),
-                'realtime_state': service_status.get('realTimeState')
+                'configured_state': configured_state,
+                'realtime_state': realtime_state
             }
         if service_type == 'MapServer':
             service_info = get_service_info(server_url, token, service_name, service_folder, service_type)
@@ -352,8 +354,8 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                 .format(service_type, service_name, service_folder)
             )
             return {
-                'configured_state': service_status.get('configuredState'),
-                'realtime_state': service_status.get('realTimeState')
+                'configured_state': configured_state,
+                'realtime_state': realtime_state
             }
     except StandardError as e:
         log.exception(
@@ -439,8 +441,14 @@ def restart_service(server_url, token, service_name, service_folder=None, servic
     log.info('Restarting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     stop_service(server_url, token, service_name, service_folder, service_type)
     start_service(server_url, token, service_name, service_folder, service_type)
-    if get_service_status(server_url, token, service_name, service_folder, service_type).get('realTimeState') == 'STOPPED':
-        raise RuntimeError('Service {} was not successfully restarted!'.format(service_name))
+    service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
+    configured_state = service_status.get('configuredState'),
+    realtime_state = service_status.get('realTimeState')
+    if realtime_state != 'STARTED':
+        raise RuntimeError(
+            '{} service {}/{} was not successfully restarted! (configured state: {}, realtime state: {})'
+            .format(service_type, service_folder, service_name, configured_state, realtime_state)
+        )
 
 
 def parse_datasets_from_service_manifest(data):
