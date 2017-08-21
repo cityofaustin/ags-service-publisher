@@ -6,7 +6,7 @@ import tempfile
 from copy import deepcopy
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces, restart_service, get_service_status, test_service
+from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces, restart_service, get_service_status, test_service, get_service_manifest
 from config_io import get_config, get_configs, default_config_dir
 from datasources import update_data_sources, get_data_sources
 from extrafilters import superfilter
@@ -707,3 +707,153 @@ def normalize_service(service, default_service_properties):
         log.debug('No service-level properties specified for service {}'.format(service_name))
     service_type = merged_service_properties.get('service_type', 'MapServer')
     return service_name, service_type, merged_service_properties
+
+
+def analyze_services(
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    warn_on_errors=True,
+    config_dir=default_config_dir
+):
+    import arcpy
+    arcpy.env.overwriteOutput = True
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+
+    for env_name in env_names:
+        log.debug('Analyzing services for environment {}'.format(env_name))
+        env = user_config['environments'][env_name]
+        for ags_instance in superfilter(env['ags_instances'], included_instances, excluded_instances):
+            ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+            ags_connection = ags_instance_props['ags_connection']
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if (
+                        service_type in ('MapServer', 'GeocodeServer') and
+                        superfilter((service_name,), included_services, excluded_services)
+                    ):
+                        file_path = None
+                        try:
+                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type)
+                            file_path = service_manifest['resources'][0]['onPremisePath']
+                            file_type = {
+                                'MapServer': 'MXD',
+                                'GeocodeServer': 'Locator'
+                            }[service_type]
+                            log.info(
+                                'Analyzing {} service {}/{} on ArcGIS Server instance {} (Connection File: {}, {} Path: {})'
+                                .format(service_type, service_folder, service_name, ags_instance, ags_connection, file_type, file_path)
+                            )
+                            if not arcpy.Exists(file_path):
+                                raise RuntimeError('{} {} does not exist!'.format(file_type, file_path))
+                            try:
+                                tempdir = tempfile.mkdtemp()
+                                log.debug('Temporary directory created: {}'.format(tempdir))
+                                sddraft = os.path.join(tempdir, service_name + '.sddraft')
+                                log.debug('Creating SDDraft file: {}'.format(sddraft))
+
+                                if service_type == 'MapServer':
+                                    mxd = arcpy.mapping.MapDocument(file_path)
+                                    analysis = arcpy.mapping.CreateMapSDDraft(
+                                        mxd,
+                                        sddraft,
+                                        service_name,
+                                        'FROM_CONNECTION_FILE',
+                                        ags_connection,
+                                        False,
+                                        service_folder
+                                    )
+                                elif service_type == 'GeocodeServer':
+                                    locator_path = file_path
+                                    analysis = arcpy.CreateGeocodeSDDraft(
+                                        locator_path,
+                                        sddraft,
+                                        service_name,
+                                        'FROM_CONNECTION_FILE',
+                                        ags_connection,
+                                        False,
+                                        service_folder
+                                    )
+                                else:
+                                    raise RuntimeError('Unsupported service type {}!'.format(service_type))
+
+                                for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
+                                    items = analysis[key]
+                                    if items:
+                                        log.info('----' + key.upper() + '---')
+                                        for ((message, code), layerlist) in items.iteritems():
+                                            code = '{:05d}'.format(code)
+                                            log_method('    {} (CODE {})'.format(message, code))
+                                            code = '="{}"'.format(code)
+                                            if not layerlist:
+                                                yield (
+                                                    env_name,
+                                                    ags_instance,
+                                                    service_folder,
+                                                    service_name,
+                                                    service_type,
+                                                    file_path,
+                                                    key[:-1].title(),
+                                                    code,
+                                                    message,
+                                                    None,
+                                                    None,
+                                                    None
+                                                )
+                                            else:
+                                                log_method('       applies to:')
+                                                for layer in layerlist:
+                                                    log_method('           {}'.format(layer.name))
+                                                    yield (
+                                                        env_name,
+                                                        ags_instance,
+                                                        service_folder,
+                                                        service_name,
+                                                        service_type,
+                                                        file_path,
+                                                        key[:-1].title(),
+                                                        code,
+                                                        message,
+                                                        layer.name,
+                                                        layer.datasetName,
+                                                        layer.dataSource
+                                                    )
+                                            log_method('')
+
+                                if analysis['errors']:
+                                    error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
+                                        .format(service_folder, service_name, datetime.datetime.now())
+                                    log.error(error_message)
+                                    raise RuntimeError(error_message, analysis['errors'])
+                            finally:
+                                log.debug('Cleaning up temporary directory: {}'.format(tempdir))
+                                rmtree(tempdir, ignore_errors=True)
+                        except StandardError as e:
+                            log.exception(
+                                'An error occurred while analyzing {} service {}/{} on ArcGIS Server instance {}'
+                                .format(service_type, service_folder, service_name, ags_instance)
+                            )
+                            if not warn_on_errors:
+                                raise
+                            else:
+                                yield (
+                                    env_name,
+                                    ags_instance,
+                                    service_folder,
+                                    service_name,
+                                    service_type,
+                                    file_path,
+                                    'Error',
+                                    None,
+                                    e.message,
+                                    None,
+                                    None,
+                                    None
+                                )

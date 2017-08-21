@@ -216,6 +216,43 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         raise
 
 
+def get_service_manifest(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+    log.debug('Getting manifest for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'iteminfo/manifest/manifest.json'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
+        log.debug('Request URL: {}'. format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        if data.get('error'):
+            raise RuntimeError(data.get('error').get('message'))
+        log.debug(
+            'Service {} manifest (URL {}, Folder: {}): {}'
+            .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
+        )
+        return data
+    except:
+        log.exception(
+            'An error occurred while getting manifest for service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
 def get_service_status(server_url, token, service_name, service_folder=None, service_type='MapServer'):
     log.debug('Getting status of service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(

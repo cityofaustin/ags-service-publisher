@@ -468,3 +468,74 @@ def run_service_health_report(
         )
     )
     return output_filename
+
+
+def run_service_analysis_report(
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    output_filename=None,
+    output_format='csv',
+    warn_on_errors=False,
+    verbose=False,
+    quiet=False,
+    config_dir=default_config_dir
+):
+    if not quiet:
+        setup_console_log_handler(root_logger, verbose)
+    if not verbose:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+
+    log.info(
+        'Generating service analysis report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename else ''
+        )
+    )
+    log.debug('Using config directory: {}'.format(config_dir))
+
+    def get_report_data():
+        return publisher.analyze_services(
+            included_envs, excluded_envs,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_services, excluded_services,
+            warn_on_errors,
+            config_dir
+        )
+
+    if output_format == 'csv':
+        report_data = get_report_data()
+
+        with file_or_stdout(output_filename, 'wb') as csv_file:
+            header_row = (
+                'Environment',
+                'Instance',
+                'Service Folder',
+                'Service Name',
+                'Service Type',
+                'File Path',
+                'Severity',
+                'Code',
+                'Message',
+                'Layer',
+                'Dataset',
+                'Data Source'
+            )
+            csv_writer = csv.writer(csv_file, lineterminator='\n')
+            csv_writer.writerow(header_row)
+            for row in report_data:
+                csv_writer.writerow(row)
+    else:
+        raise RuntimeError('Unsupported output format: {}'.format(output_format))
+
+    log.info(
+        'Successfully generated service analysis report{}'
+        .format(
+            ': {}'.format(os.path.abspath(output_filename))
+            if output_filename and os.path.isfile(output_filename) else ''
+        )
+    )
+    return output_filename
