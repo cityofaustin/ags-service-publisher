@@ -312,7 +312,7 @@ results, including response time and any error messages, are added to the report
 
 Useful for determining which services are stopped, running slowly, or returning errors.
 
-**Note:**  The warn_on_errors argument can be set to True (i.e. warn_on_errors=True) when running this and any other function of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Health Report, as the script will halt if it encounters an error when processing any one service. 
+**Note:**  The `warn_on_errors` argument can be set to `True` (i.e. `warn_on_errors=True`) when running this and many other functions of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Health Report, as the script will halt if it encounters an error when processing any one service. 
 
 ##### Examples:
 
@@ -332,6 +332,34 @@ Useful for determining which services are stopped, running slowly, or returning 
 
 **Note:** To generate Service Health reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
     for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
+
+#### Service Analysis Report
+
+This report type queries ArcGIS Server for a list of MapServer or GeocodeServer services, finds the source file (MXD or locator) used to publish that service, and then runs the [Analyze][9] step of service publishing against that file, reporting any issues it finds. You can look up the [error codes][10] in the ArcGIS Server Help for more information about them.
+
+Useful for determining possible performance or other issues with published services.
+
+**Note:**  The `warn_on_errors` argument can be set to `True` (i.e. `warn_on_errors=True`) when running this and many other functions of AGS Service Publisher.  It is particularly helpful to set warn_on_errors to true when running the Service Analysis Report, as the script will halt if it encounters an error when processing any one service. 
+
+##### Examples:
+
+- Generate a report in CSV format of the analysis results of all the services within the `CouncilDistrictMap` service
+    folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import runner; runner.run_service_analysis_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Analysis-Report.csv')"
+    ```
+
+- Generate a report in CSV format of the analysis of all services on the `coagisd1` ArcGIS Server instance defined
+    in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import runner; runner.run_service_analysis_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Analysis-Report.csv')"
+    ```
+
+**Note:** To generate Service Analysis reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).    
+
 
 ### Generate tokens
 
@@ -395,3 +423,5 @@ Useful for determining which services are stopped, running slowly, or returning 
 [6]: http://desktop.arcgis.com/en/arcmap/latest/analyze/arcpy-mapping/createmapsddraft.htm
 [7]: http://desktop.arcgis.com/en/arcmap/latest/tools/server-toolbox/generate-map-server-cache-tiling-scheme.htm
 [8]: https://docs.python.org/2/library/fnmatch.html
+[9]: http://server.arcgis.com/en/server/latest/publish-services/windows/analyzing-your-gis-resource.htm
+[10]: http://server.arcgis.com/en/server/latest/publish-services/windows/00001-data-frame-does-not-have-layers.htm
