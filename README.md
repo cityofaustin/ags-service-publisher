@@ -212,27 +212,27 @@ environments:
 - Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
+    python -c "from ags_service_publisher import Runner; Runner().run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'])"
     ```
 
 - Same as above, but publish all **except** for the `dev` environment (e.g. `test` and `prod`) using `excluded_envs`:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], excluded_envs=['dev'])"
+    python -c "from ags_service_publisher import Runner; Runner().run_batch_publishing_job(['CouncilDistrictMap'], excluded_envs=['dev'])"
     ```
 
 - Publish all of the environments in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file, but
     **only** publish the `CouncilDistrictsFill` service:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
+    python -c "from ags_service_publisher import Runner; Runner().run_batch_publishing_job(['CouncilDistrictMap'], included_services=['CouncilDistrictsFill'])"
     ```
 
 - Publish the `dev` environment in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file, adding a
     "`_temp`" suffix to the published service names:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'], service_suffix='_temp')"
+    python -c "from ags_service_publisher import Runner; Runner().run_batch_publishing_job(['CouncilDistrictMap'], included_envs=['dev'], service_suffix='_temp')"
     ```
     
     - **Note:** Similarly, a prefix can also be specified using `service_prefix`.
@@ -243,7 +243,7 @@ environments:
     `CouncilDistrictMap.yml` configuration file:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_batch_cleanup_job(['CouncilDistrictMap'])"
+    python -c "from ags_service_publisher import Runner; Runner().run_batch_cleanup_job(['CouncilDistrictMap'])"
     ```
 
 **Note:** To clean up services, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS
@@ -267,13 +267,13 @@ where clauses.
     each service defined in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report.csv')"
     ```
 
 - Same as above, but exclude staging MXDs (MXDs located within the `staging_dir`) from the report:
     
     ```
-    python -c "from ags_service_publisher import runner; runner.run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], include_staging_mxds=False, output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report-no-staging.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], include_staging_mxds=False, output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report-no-staging.csv')"
     ```
 
 #### Dataset Usages report
@@ -290,14 +290,14 @@ particular datasets.
     service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Dataset-Usages-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_dataset_usages_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Dataset-Usages-Report.csv')"
     ```
 
 - Generate a report in CSV format of all the usages of a dataset named `BOUNDARIES.single_member_districts` within all
     services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts-Dataset-Usages-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_dataset_usages_report(included_datasets=['BOUNDARIES.single_member_districts'], included_instances=['coagisd1'], output_filename='../ags_service_reports/single_member_districts-Dataset-Usages-Report.csv')"
     ```
 
 **Note:** To generate Dataset Usage reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
@@ -320,14 +320,14 @@ Useful for determining which services are stopped, running slowly, or returning 
     folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_service_health_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Health-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_service_health_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Health-Report.csv')"
     ```
 
 - Generate a report in CSV format of the health status of all services on the `coagisd1` ArcGIS Server instance defined
     in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_service_health_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Health-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_service_health_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Health-Report.csv')"
     ```
 
 **Note:** To generate Service Health reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
@@ -347,14 +347,14 @@ Useful for determining possible performance or other issues with published servi
     folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_service_analysis_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Analysis-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_service_analysis_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Analysis-Report.csv')"
     ```
 
 - Generate a report in CSV format of the analysis of all services on the `coagisd1` ArcGIS Server instance defined
     in [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.run_service_analysis_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Analysis-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_service_analysis_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service_Analysis-Report.csv')"
     ```
 
 **Note:** To generate Service Analysis reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
@@ -367,7 +367,7 @@ Useful for determining possible performance or other issues with published servi
    [`userconfig.yml`](#userconfigyml) that expires in 30 days:
    
    ```
-   python -c "from ags_service_publisher import runner; runner.generate_tokens(reuse_credentials=True, expiration=43200)"
+   python -c "from ags_service_publisher import Runner; Runner().generate_tokens(reuse_credentials=True, expiration=43200)"
    ```
    
    **Notes:**
@@ -387,7 +387,7 @@ Useful for determining possible performance or other issues with published servi
     instances in the `dev` environment specified within [`userconfig.yml`](#userconfigyml):
 
     ```
-    python -c "from ags_service_publisher import runner; runner.batch_import_connection_files(['*COUNCILDISTRICTMAP_SERVICE*'], included_envs=['dev'])"
+    python -c "from ags_service_publisher import Runner; Runner().batch_import_connection_files(['*COUNCILDISTRICTMAP_SERVICE*'], included_envs=['dev'])"
     ```
     
     **Note:** This looks for `.sde` files located within the directory specified by `sde_connections_dir` for each
@@ -398,16 +398,16 @@ Useful for determining possible performance or other issues with published servi
 - You can use [`fnmatch`][8]-style wildcards in any of the strings in the list arguments to the runner functions, so,
     for example, you could put `included_services=['CouncilDistrict*']` and both the `CouncilDistrictMap` and
     `CouncilDistrictsFill` services would be published.
-- All of the runner functions accept a `verbose` argument that, if set to `True`, will output more granular information
-    to the console to help troubleshoot issues. Defaults to `False`.
-- All of the runner functions accept a `quiet` argument that, if set to `True`, will suppress all output except for
-    critical errors. Defaults to `False`.
-- All of the runner functions accept a `config_dir` argument that allows you to override which directory is used for
-    your configuration files. Defaults to the `./config` directory beneath the script's root directory. Alternatively,
-    you can set the `AGS_SERVICE_PUBLISHER_CONFIG_DIR` environment variable to your desired directory.
-- Some of the runner functions accept a `log_dir` argument that allows you to override which directory is used for
-    storing log files. Defaults to the `./logs` directory beneath the script's root directory. Alternatively, you can
-    set the `AGS_SERVICE_PUBLISHER_LOG_DIR` environment variable to your desired directory.
+- The `Runner` constructor accepts several optional keyword arguments:
+    - `verbose`: if set to `True`, will output more granular information to the console to help troubleshoot issues.
+      Defaults to `False`.
+    - `quiet`: if set to `True`, will suppress all output except for critical errors. Defaults to `False`.
+    - `config_dir`: allows you to override which directory is used for your configuration files. Defaults to the
+      `./config` directory beneath the script's root directory. Alternatively, you can set the
+      `AGS_SERVICE_PUBLISHER_CONFIG_DIR` environment variable to your desired directory.
+    - `log_dir`: allows you to override which directory is used for storing log files. Defaults to the `./logs`
+        directory beneath the script's root directory. Alternatively, you can set the `AGS_SERVICE_PUBLISHER_LOG_DIR`
+        environment variable to your desired directory.
 
 ## TODO
 
