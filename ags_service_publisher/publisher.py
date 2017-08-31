@@ -8,7 +8,7 @@ from shutil import copyfile, rmtree
 
 from ags_utils import list_services, delete_service, list_service_folders, list_service_workspaces, restart_service, get_service_status, test_service, get_service_manifest
 from config_io import get_config, get_configs, default_config_dir
-from datasources import update_data_sources, get_data_sources
+from datasources import update_data_sources, get_mxd_data_sources, open_mxd
 from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger
@@ -270,7 +270,7 @@ def publish_service(
 
         if service_type == 'MapServer':
             mxd_path = os.path.join(source_dir, original_service_name + '.mxd')
-            mxd = arcpy.mapping.MapDocument(mxd_path)
+            mxd = open_mxd(mxd_path)
             arcpy.mapping.CreateMapSDDraft(
                 mxd,
                 sddraft,
@@ -580,7 +580,7 @@ def find_mxd_data_sources(
                             database,
                             version,
                             definition_query
-                        ) in get_data_sources(mxd_path):
+                        ) in get_mxd_data_sources(mxd_path):
                             if (
                                 superfilter((dataset_name,), included_datasets, excluded_datasets) and
                                 superfilter((user,), included_users, excluded_users) and
@@ -760,7 +760,7 @@ def analyze_services(
                                 log.debug('Creating SDDraft file: {}'.format(sddraft))
 
                                 if service_type == 'MapServer':
-                                    mxd = arcpy.mapping.MapDocument(file_path)
+                                    mxd = open_mxd(file_path)
                                     analysis = arcpy.mapping.CreateMapSDDraft(
                                         mxd,
                                         sddraft,

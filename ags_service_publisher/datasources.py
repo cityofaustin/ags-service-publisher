@@ -17,25 +17,38 @@ def list_sde_connection_files_in_folder(sde_connections_dir):
     return list_files_in_dir(sde_connections_dir, ext='.sde')
 
 
-def get_unique_data_sources(mxd_paths):
+def get_unique_data_sources(mxd_paths, include_table_views=True):
     log.debug('Getting unique data sources for MXD paths: {}'.format(mxd_paths))
     data_sources = []
     for mxd_path in mxd_paths:
-        data_sources.extend([data_source[2] for data_source in get_data_sources(mxd_path)])
+        data_sources.extend([data_source[2] for data_source in get_mxd_data_sources(mxd_path, include_table_views)])
     unique_data_sources = list(set(data_sources))
     return unique_data_sources
 
 
-def get_data_sources(mxd_path):
-    log.debug('Getting data sources for MXD: {}'.format(mxd_path))
+def open_mxd(mxd_path):
     if not os.path.isfile(mxd_path):
         raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
 
     import arcpy
-    mxd = arcpy.mapping.MapDocument(mxd_path)
+    return arcpy.mapping.MapDocument(mxd_path)
+
+
+def list_layers_in_mxd(mxd, include_table_views=True):
+    log.debug('Listing layers in MXD: {}'.format(mxd.filePath))
+
+    import arcpy
     layers = arcpy.mapping.ListLayers(mxd)
-    layers.extend(arcpy.mapping.ListTableViews(mxd))
+    if include_table_views:
+        layers.extend(arcpy.mapping.ListTableViews(mxd))
     for layer in layers:
+        yield layer
+
+
+def get_mxd_data_sources(mxd_path, include_table_views=True):
+    log.debug('Getting data sources for MXD: {}'.format(mxd_path))
+
+    for layer in list_layers_in_mxd(open_mxd(mxd_path), include_table_views):
         if hasattr(layer, 'workspacePath'):
             user = 'n/a'
             database = 'n/a'
@@ -74,11 +87,8 @@ def parse_database_from_service_string(database):
 def update_data_sources(mxd_path, data_source_mappings):
     log.info('Updating data sources in MXD: {}'.format(mxd_path))
 
-    import arcpy
-    mxd = arcpy.mapping.MapDocument(mxd_path)
-    layers = arcpy.mapping.ListLayers(mxd)
-    layers.extend(arcpy.mapping.ListTableViews(mxd))
-    for layer in layers:
+    mxd = open_mxd(mxd_path)
+    for layer in list_layers_in_mxd(mxd):
         if hasattr(layer, 'workspacePath'):
             try:
                 new_workspace_path = data_source_mappings[layer.workspacePath]
