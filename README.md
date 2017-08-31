@@ -128,7 +128,7 @@ of your ArcGIS Server instances.
 
 ### Example configuration files
 
-####`CouncilDistrictMap.yml`:
+#### `CouncilDistrictMap.yml`:
 
 ``` yml
 service_folder: CouncilDistrictMap
@@ -166,7 +166,7 @@ environments:
     staging_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
 ```
 
-####`userconfig.yml`:
+#### `userconfig.yml`:
 
 ``` yml
 environments:
