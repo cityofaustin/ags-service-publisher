@@ -33,6 +33,7 @@ def write_report(report_data, header_row=None, report_type='', output_filename=N
     log.info(
         'Successfully generated {} report{}'
         .format(
+            report_type,
             ': {}'.format(os.path.abspath(output_filename))
             if output_filename and os.path.isfile(output_filename) else ''
         )
