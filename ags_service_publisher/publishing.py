@@ -309,7 +309,7 @@ def publish_service(
                 log_method('    {} (CODE {:05d})'.format(message, code))
                 log_method('       applies to:')
                 for layer in layerlist:
-                    log_method('           {}'.format(layer.name))
+                    log_method('           {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
                 log_method('')
 
         if analysis['errors'] == {}:

@@ -50,6 +50,7 @@ def get_mxd_data_sources(mxd_path, include_table_views=True):
 
     for layer in list_layers_in_mxd(open_mxd(mxd_path), include_table_views):
         if hasattr(layer, 'workspacePath'):
+            layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
             user = 'n/a'
             database = 'n/a'
             version = 'n/a'
@@ -62,10 +63,10 @@ def get_mxd_data_sources(mxd_path, include_table_views=True):
 
             log.debug(
                 'Layer name: {}, Dataset name: {}, Workspace path: {}, User: {}, Database: {}, Version: {}, Definition Query: {}'
-                .format(layer.name, layer.datasetName, layer.workspacePath, user, database, version, definition_query)
+                .format(layer_name, layer.datasetName, layer.workspacePath, user, database, version, definition_query)
             )
             yield (
-                layer.name,
+                layer_name,
                 layer.datasetName,
                 layer.workspacePath,
                 user,
@@ -90,17 +91,18 @@ def update_data_sources(mxd_path, data_source_mappings):
     mxd = open_mxd(mxd_path)
     for layer in list_layers_in_mxd(mxd):
         if hasattr(layer, 'workspacePath'):
+            layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
             try:
                 new_workspace_path = data_source_mappings[layer.workspacePath]
                 log.info(
                     'Updating workspace path for layer {}, dataset name: {}, '
                     'current workspace path: {}, new workspace path: {}'
-                    .format(layer.name, layer.datasetName, layer.workspacePath, new_workspace_path)
+                    .format(layer_name, layer.datasetName, layer.workspacePath, new_workspace_path)
                 )
                 layer.findAndReplaceWorkspacePath(layer.workspacePath, new_workspace_path, False)
             except KeyError:
                 log.warn(
                     'No match for layer {}, dataset name: {}, workspace path: {}'
-                    .format(layer.name, layer.datasetName, layer.workspacePath)
+                    .format(layer_name, layer.datasetName, layer.workspacePath)
                 )
     mxd.save()

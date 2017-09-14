@@ -124,7 +124,8 @@ def analyze_services(
                                             else:
                                                 log_method('       applies to:')
                                                 for layer in layerlist:
-                                                    log_method('           {}'.format(layer.name))
+                                                    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+                                                    log_method('           {}'.format(layer_name))
                                                     yield (
                                                         env_name,
                                                         ags_instance,
@@ -135,7 +136,7 @@ def analyze_services(
                                                         key[:-1].title(),
                                                         code,
                                                         message,
-                                                        layer.name,
+                                                        layer_name,
                                                         layer.datasetName,
                                                         layer.dataSource
                                                     )
