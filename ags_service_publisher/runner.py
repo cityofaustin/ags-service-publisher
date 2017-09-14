@@ -68,7 +68,7 @@ class Runner:
                     service_suffix,
                     warn_on_validation_errors
                 )
-            except:
+            except StandardError:
                 log.exception('An error occurred while publishing config \'{}\''.format(config_name))
                 log.error('See the log file at {}'.format(log_file_handler.baseFilename))
                 raise
@@ -94,7 +94,7 @@ class Runner:
                     included_instances, excluded_instances,
                     self.config_dir
                 )
-            except:
+            except StandardError:
                 log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
                 log.error('See the log file at {}'.format(log_file_handler.baseFilename))
                 raise

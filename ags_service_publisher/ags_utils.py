@@ -39,7 +39,7 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
             .format(server_url, username, data['expires'])
         )
         return data['token']
-    except:
+    except StandardError:
         log.exception('An error occurred while generating token (URL: {}, user: {})'.format(server_url, username))
         raise
 
@@ -60,7 +60,7 @@ def list_service_folders(server_url, token):
             .format(r.url, json.dumps(service_folders, indent=4))
         )
         return service_folders
-    except:
+    except StandardError:
         log.exception('An error occurred while listing service folders (URL: {})'.format(server_url))
         raise
 
@@ -91,7 +91,7 @@ def list_services(server_url, token, service_folder=None):
         )
         services = data['services']
         return services
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while listing services (URL: {}, Folder: {})'
             .format(server_url, service_folder)
@@ -138,7 +138,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
                 parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
                 conn_props.get('VERSION', 'n/a')
             )
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while listing workspaces for service {}/{}'
             .format(service_folder, service_name)
@@ -172,7 +172,7 @@ def delete_service(server_url, token, service_name, service_folder=None, service
             'Service {} successfully deleted (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while deleting service {}/{}'
             .format(service_folder, service_name)
@@ -208,7 +208,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while getting info for service {}/{}'
             .format(service_folder, service_name)
@@ -245,7 +245,7 @@ def get_service_manifest(server_url, token, service_name, service_folder=None, s
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while getting manifest for service {}/{}'
             .format(service_folder, service_name)
@@ -280,7 +280,7 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while getting the status of service {}/{}'
             .format(service_folder, service_name)
@@ -432,7 +432,7 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
             'Service {} successfully stopped (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while stopping service {}/{}'
             .format(service_folder, service_name)
@@ -466,7 +466,7 @@ def start_service(server_url, token, service_name, service_folder=None, service_
             'Service {} successfully started (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while starting service {}/{}'
             .format(service_folder, service_name)

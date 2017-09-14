@@ -326,7 +326,7 @@ def publish_service(
                 .format(service_folder, service_name, datetime.datetime.now())
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
-    except:
+    except StandardError:
         log.exception(
             'An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
             .format(service_folder, service_name, ags_instance)
