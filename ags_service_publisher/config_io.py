@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import os
 from collections import OrderedDict
 
@@ -5,7 +7,6 @@ import yaml  # PyYAML: http://pyyaml.org/
 
 from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
-
 from logging_io import setup_logger
 
 log = setup_logger(__name__)

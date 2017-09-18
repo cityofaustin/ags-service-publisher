@@ -1,5 +1,7 @@
 # Adapted from https://gist.github.com/schlamar/7003737
 
+from __future__ import unicode_literals
+
 import contextlib
 import multiprocessing
 import logging

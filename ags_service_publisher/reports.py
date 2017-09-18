@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import csv
 import os
 
@@ -23,10 +25,10 @@ def write_report(report_data, header_row=None, report_type='', output_filename=N
 
     if output_format == 'csv':
         with file_or_stdout(output_filename, 'wb') as csv_file:
-            csv_writer = csv.writer(csv_file, lineterminator='\n')
+            csv_writer = csv.writer(csv_file, lineterminator='\n', dialect='excel')
             csv_writer.writerow(header_row)
             for row in report_data:
-                csv_writer.writerow(row)
+                csv_writer.writerow([value.encode('utf-8') if hasattr(value, 'encode') else value for value in row])
     else:
         raise RuntimeError('Unsupported output format: {}'.format(output_format))
 

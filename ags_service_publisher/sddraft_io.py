@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from xml.etree import ElementTree
 
 from helpers import snake_case_to_pascal_case
