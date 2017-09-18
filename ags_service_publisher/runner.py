@@ -184,7 +184,7 @@ class Runner:
             'Workspace Path',
             'Definition Query'
         )
-        return write_report(report_data, header_row, output_filename, output_format)
+        return write_report(report_data, header_row, 'MXD data sources', output_filename, output_format)
 
     def generate_tokens(
         self,
