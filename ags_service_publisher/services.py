@@ -17,7 +17,7 @@ from ags_utils import (
     test_service
 )
 from config_io import get_config, default_config_dir
-from datasources import open_mxd
+from datasources import open_mxd, list_layers_in_mxd, get_layer_fields, get_layer_properties
 from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger
@@ -140,7 +140,7 @@ def analyze_services(
                                                         message,
                                                         layer_name,
                                                         layer.datasetName,
-                                                        layer.dataSource
+                                                        layer.workspacePath
                                                     )
                                             log_method('')
 
@@ -173,6 +173,186 @@ def analyze_services(
                                     None,
                                     None,
                                     None
+                                )
+
+
+def list_service_layer_fields(
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    warn_on_errors=False,
+    config_dir=default_config_dir
+):
+    import arcpy
+    arcpy.env.overwriteOutput = True
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+
+    for env_name in env_names:
+        log.debug('Listing service layers and fields for environment {}'.format(env_name))
+        env = user_config['environments'][env_name]
+        for ags_instance in superfilter(env['ags_instances'], included_instances, excluded_instances):
+            ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+            ags_connection = ags_instance_props['ags_connection']
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if (
+                        service_type == 'MapServer' and
+                        superfilter((service_name,), included_services, excluded_services)
+                    ):
+                        mxd_path = None
+                        try:
+                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type)
+                            mxd_path = service_manifest['resources'][0]['onPremisePath']
+                            log.info(
+                                'Listing layers and fields for {} service {}/{} on ArcGIS Server instance {} '
+                                '(Connection File: {}, MXD Path: {})'
+                                .format(service_type, service_folder, service_name, ags_instance, ags_connection, mxd_path)
+                            )
+                            if not arcpy.Exists(mxd_path):
+                                raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
+                            mxd = open_mxd(mxd_path)
+                            for layer in list_layers_in_mxd(mxd):
+                                if not (
+                                    (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
+                                    (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
+                                ):
+                                    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+                                    try:
+                                        (
+                                            layer_name,
+                                            dataset_name,
+                                            workspace_path,
+                                            is_broken,
+                                            user,
+                                            database,
+                                            version,
+                                            definition_query,
+                                            show_labels,
+                                            symbology_type,
+                                            symbology_field
+                                        ) = get_layer_properties(layer)
+                                    except StandardError as e:
+                                        log.exception(
+                                            'An error occurred while retrieving properties for layer {} in MXD {}'
+                                            .format(layer_name, mxd_path)
+                                        )
+                                        if not warn_on_errors:
+                                            raise
+                                        else:
+                                            yield (
+                                                env_name,
+                                                ags_instance,
+                                                service_folder,
+                                                service_name,
+                                                service_type,
+                                                'Error retrieving layer properties: {}'.format(e.message),
+                                                mxd_path,
+                                                layer_name
+                                            )
+                                            continue
+                                    try:
+                                        if is_broken:
+                                            raise RuntimeError(
+                                                'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
+                                                    layer_name,
+                                                    layer.dataSource if hasattr(layer, 'dataSource') else 'n/a'
+                                                )
+                                            )
+                                        for (
+                                            field_name,
+                                            field_type,
+                                            has_index,
+                                            field_in_definition_query,
+                                            field_in_label_class_expression,
+                                            field_in_label_class_sql_query
+                                        ) in get_layer_fields(layer):
+                                            needs_index = not has_index and (
+                                                field_in_definition_query or
+                                                field_in_label_class_expression or
+                                                field_in_label_class_sql_query or
+                                                field_name == symbology_field or
+                                                field_type == 'Geometry'
+                                            )
+
+                                            yield (
+                                                env_name,
+                                                ags_instance,
+                                                service_folder,
+                                                service_name,
+                                                service_type,
+                                                None,
+                                                mxd_path,
+                                                layer_name,
+                                                dataset_name,
+                                                workspace_path,
+                                                is_broken,
+                                                user,
+                                                database,
+                                                version,
+                                                definition_query,
+                                                show_labels,
+                                                symbology_type,
+                                                symbology_field,
+                                                field_name,
+                                                field_type,
+                                                has_index,
+                                                needs_index,
+                                                field_in_definition_query,
+                                                field_in_label_class_expression,
+                                                field_in_label_class_sql_query
+                                            )
+                                    except StandardError as e:
+                                        log.exception(
+                                            'An error occurred while listing fields for layer {} in MXD {}'
+                                            .format(layer_name, mxd_path)
+                                        )
+                                        if not warn_on_errors:
+                                            raise
+                                        else:
+                                            yield (
+                                                env_name,
+                                                ags_instance,
+                                                service_folder,
+                                                service_name,
+                                                service_type,
+                                                'Error retrieving layer fields: {}'.format(e.message),
+                                                mxd_path,
+                                                layer_name,
+                                                dataset_name,
+                                                workspace_path,
+                                                is_broken,
+                                                user,
+                                                database,
+                                                version,
+                                                definition_query,
+                                                show_labels,
+                                                symbology_type,
+                                                symbology_field
+                                            )
+                        except StandardError as e:
+                            log.exception(
+                                'An error occurred while listing layers and fields for {} service {}/{} on '
+                                'ArcGIS Server instance {} (Connection File: {})'
+                                .format(service_type, service_folder, service_name, ags_instance, ags_connection)
+                            )
+                            if not warn_on_errors:
+                                raise
+                            else:
+                                yield (
+                                    env_name,
+                                    ags_instance,
+                                    service_folder,
+                                    service_name,
+                                    service_type,
+                                    e.message,
+                                    mxd_path
                                 )
 
 

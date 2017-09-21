@@ -52,30 +52,89 @@ def get_mxd_data_sources(mxd_path, include_table_views=True):
 
     for layer in list_layers_in_mxd(open_mxd(mxd_path), include_table_views):
         if hasattr(layer, 'workspacePath'):
-            layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-            user = 'n/a'
-            database = 'n/a'
-            version = 'n/a'
-            definition_query = layer.definitionQuery if hasattr(layer, 'definitionQuery') else 'n/a'
-            if hasattr(layer, 'serviceProperties'):
-                service_props = layer.serviceProperties
-                user = service_props.get('UserName', 'n/a')
-                version = service_props.get('Version', 'n/a')
-                database = parse_database_from_service_string(service_props.get('Service', 'n/a'))
+            yield get_layer_properties(layer)
 
-            log.debug(
-                'Layer name: {}, Dataset name: {}, Workspace path: {}, User: {}, Database: {}, Version: {}, Definition Query: {}'
-                .format(layer_name, layer.datasetName, layer.workspacePath, user, database, version, definition_query)
-            )
-            yield (
-                layer_name,
-                layer.datasetName,
-                layer.workspacePath,
-                user,
-                database,
-                version,
-                definition_query
-            )
+
+def get_layer_properties(layer):
+    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+    log.debug('Getting properties for layer: {}'.format(layer_name))
+
+    if hasattr(layer, 'workspacePath'):
+        user = 'n/a'
+        database = 'n/a'
+        version = 'n/a'
+        definition_query = layer.definitionQuery if hasattr(layer, 'definitionQuery') else 'n/a'
+        show_labels = layer.showLabels if hasattr(layer, 'showLabels') else 'n/a'
+        symbology_type = layer.symbologyType if hasattr(layer, 'symbologyType') else 'n/a'
+        symbology_field = layer.symbology.valueField if (hasattr(layer, 'symbology') and hasattr(layer.symbology, 'valueField')) else 'n/a'
+        if hasattr(layer, 'serviceProperties'):
+            service_props = layer.serviceProperties
+            user = service_props.get('UserName', 'n/a')
+            version = service_props.get('Version', 'n/a')
+            database = parse_database_from_service_string(service_props.get('Service', 'n/a'))
+
+        log.debug(
+            'Layer name: {}, Dataset name: {}, Workspace path: {}, Data source is broken: {}, User: {}, Database: {}, Version: {}, Definition query: {}, Show labels: {}, Symbology type: {}, Symbology field: {}'
+            .format(layer_name, layer.datasetName, layer.workspacePath, layer.isBroken, user, database, version, definition_query, show_labels, symbology_type, symbology_field)
+        )
+        return (
+            layer_name,
+            layer.datasetName,
+            layer.workspacePath,
+            layer.isBroken,
+            user,
+            database,
+            version,
+            definition_query,
+            show_labels,
+            symbology_type,
+            symbology_field
+        )
+    else:
+        raise RuntimeError('Unsupported layer: {}'.format(layer_name))
+
+
+def get_layer_fields(layer):
+    log.debug('Getting fields for layer: {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
+    import arcpy
+    desc = arcpy.Describe(layer)
+    fields = desc.fields
+    indexes = desc.indexes
+    for field in fields:
+        has_index = get_field_index(field, indexes)
+        field_in_definition_query = field.name.lower() in layer.definitionQuery if hasattr(layer, 'definitionQuery') else False
+        field_in_expression, field_in_query = find_field_in_label_classes(field, layer.labelClasses) if ((hasattr(layer, 'showLabels') and layer.showLabels) and hasattr(layer, 'labelClasses')) else (False, False)
+        yield (field.name, field.type, has_index, field_in_definition_query, field_in_expression, field_in_query)
+
+
+def get_field_index(field, indexes):
+    field_name = field.name
+    log.debug('Getting index for field: {}'.format(field_name))
+    has_index = False
+    for index in indexes:
+        for index_field in index.fields:
+            if has_index:
+                break
+            if index_field.name == field_name:
+                has_index = True
+                break
+        if has_index:
+            break
+    return has_index
+
+
+def find_field_in_label_classes(field, label_classes):
+    field_name = field.name
+    log.debug('Finding occurrences of field {} in label classes'.format(field_name))
+    field_in_expression = False
+    field_in_query = False
+    for label_class in label_classes:
+        if label_class.showClassLabels:
+            if not field_in_expression and label_class.expression:
+                field_in_expression = field_name.lower() in label_class.expression.lower()
+            if not field_in_query and label_class.SQLQuery:
+                field_in_query = field_name.lower() in label_class.SQLQuery.lower()
+    return field_in_expression, field_in_query
 
 
 def parse_database_from_service_string(database):

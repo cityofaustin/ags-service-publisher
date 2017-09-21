@@ -83,10 +83,14 @@ def find_mxd_data_sources(
                             layer_name,
                             dataset_name,
                             workspace_path,
+                            is_broken,
                             user,
                             database,
                             version,
-                            definition_query
+                            definition_query,
+                            show_labels,
+                            symbology_type,
+                            symbology_field
                         ) in get_mxd_data_sources(mxd_path):
                             if (
                                 superfilter((dataset_name,), included_datasets, excluded_datasets) and
@@ -102,10 +106,11 @@ def find_mxd_data_sources(
                                     mxd_type,
                                     layer_name,
                                     dataset_name,
+                                    workspace_path,
+                                    is_broken,
                                     user,
                                     database,
                                     version,
-                                    workspace_path,
                                     definition_query
                                 )
 

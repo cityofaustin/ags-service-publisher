@@ -11,7 +11,7 @@ from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger, setup_console_log_handler, setup_file_log_handler, default_log_dir
 from publishing import cleanup_config, publish_config
 from reports import find_mxd_data_sources, write_report
-from services import analyze_services, find_service_dataset_usages, restart_services, test_services
+from services import analyze_services, find_service_dataset_usages, restart_services, test_services, list_service_layer_fields
 
 log = setup_logger(__name__)
 root_logger = setup_logger()
@@ -178,10 +178,11 @@ class Runner:
             'MXD Type',
             'Layer Name',
             'Dataset Name',
+            'Workspace Path',
+            'Data Source Is Broken',
             'User',
             'Database',
             'Version',
-            'Workspace Path',
             'Definition Query'
         )
         return write_report(report_data, header_row, 'MXD data sources', output_filename, output_format)
@@ -346,9 +347,9 @@ class Runner:
             'Severity',
             'Code',
             'Message',
-            'Layer',
-            'Dataset',
-            'Data Source'
+            'Layer Name',
+            'Dataset Name',
+            'Workspace Path'
         )
 
         report_data = analyze_services(
@@ -361,3 +362,52 @@ class Runner:
         )
 
         return write_report(report_data, header_row, 'service analysis', output_filename, output_format)
+
+    def run_service_layer_fields_report(
+        self,
+        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+        included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+        included_services=asterisk_tuple, excluded_services=empty_tuple,
+        output_filename=None,
+        output_format='csv',
+        warn_on_errors=False
+    ):
+        header_row = (
+            'Environment',
+            'Instance',
+            'Service Folder',
+            'Service Name',
+            'Service Type',
+            'Error',
+            'MXD Path',
+            'Layer Name',
+            'Dataset Name',
+            'Workspace Path',
+            'Data Source Is Broken',
+            'User',
+            'Database',
+            'Version',
+            'Definition Query',
+            'Show Labels',
+            'Symbology Type',
+            'Symbology Field',
+            'Field Name',
+            'Field Type',
+            'Has Index',
+            'Needs Index',
+            'In Definition Query',
+            'In Label Class Expression',
+            'In Label Class SQL Query'
+        )
+
+        report_data = list_service_layer_fields(
+            included_envs, excluded_envs,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_services, excluded_services,
+            warn_on_errors,
+            self.config_dir
+        )
+
+        return write_report(report_data, header_row, 'dataset fields', output_filename, output_format)
