@@ -167,3 +167,41 @@ def update_data_sources(mxd_path, data_source_mappings):
                     .format(layer_name, layer.datasetName, layer.workspacePath)
                 )
     mxd.save()
+
+
+def get_geometry_statistics(dataset_path):
+    log.debug('Getting geometry statistics for dataset: {}'.format(dataset_path))
+
+    import arcpy
+    desc = arcpy.Describe(dataset_path)
+    data_type = desc.dataType
+
+    feature_count = 0
+    part_count = 0
+    vertex_count = 0
+
+    if data_type == 'Table':
+        shape_type = 'n/a'
+        feature_count = int(arcpy.GetCount_management(dataset_path).getOutput(0))
+    else:
+        shape_type = desc.shapeType
+        with arcpy.da.SearchCursor(dataset_path, ('SHAPE@',)) as cursor:
+            for (shape,) in cursor:
+                feature_count += 1
+                if shape:
+                    part_count += shape.partCount
+                    if shape_type == 'Polygon':
+                        # Exclude last vertex from each polygon part
+                        vertex_count += (shape.pointCount - shape.partCount)
+                    else:
+                        vertex_count += shape.pointCount
+
+    avg_part_count = part_count / feature_count if feature_count > 0 else 0
+    avg_vertex_count = vertex_count / feature_count if feature_count > 0 else 0
+
+    return (
+        shape_type,
+        feature_count,
+        avg_part_count,
+        avg_vertex_count
+    )

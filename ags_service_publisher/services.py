@@ -386,6 +386,8 @@ def find_service_dataset_usages(
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
                         for (
+                            dataset_name,
+                            dataset_type,
                             dataset_path,
                             user,
                             database,
@@ -397,7 +399,6 @@ def find_service_dataset_usages(
                             service_folder,
                             service_type
                         ):
-                            dataset_name = os.path.basename(dataset_path)
                             if (
                                 superfilter((dataset_name,), included_datasets, excluded_datasets) and
                                 superfilter((user,), included_users, excluded_users) and
@@ -405,11 +406,13 @@ def find_service_dataset_usages(
                                 superfilter((version,), included_versions, excluded_versions)
                             ):
                                 yield (
+                                    env_name,
                                     ags_instance,
                                     service_folder,
                                     service_name,
                                     service_type,
                                     dataset_name,
+                                    dataset_type,
                                     user,
                                     database,
                                     version,

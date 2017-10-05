@@ -133,9 +133,11 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         datasets = parse_datasets_from_service_manifest(data)
         conn_props = parse_connection_properties_from_service_manifest(data)
 
-        for dataset in datasets:
+        for dataset_name, dataset_type, dataset_path in datasets:
             yield (
-                dataset,
+                dataset_name,
+                dataset_type,
+                dataset_path,
                 conn_props.get('USER', 'n/a'),
                 parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
                 conn_props.get('VERSION', 'n/a')
@@ -492,10 +494,13 @@ def restart_service(server_url, token, service_name, service_folder=None, servic
 
 def parse_datasets_from_service_manifest(data):
     tree = ElementTree.fromstring(data)
-    datasets_xpath = './Databases/SVCDatabase/Datasets/SVCDataset/OnPremisePath'
+    datasets_xpath = './Databases/SVCDatabase/Datasets/SVCDataset'
     subelements = tree.findall(datasets_xpath)
     for subelement in subelements:
-        yield subelement.text
+        dataset_path = subelement.find('OnPremisePath').text
+        dataset_name = os.path.basename(dataset_path)
+        dataset_type = subelement.find('DatasetType').text
+        yield dataset_name, dataset_type, dataset_path
 
 
 def parse_connection_properties_from_service_manifest(data):

@@ -16,6 +16,10 @@ def snake_case_to_sentence_case(input_string):
     return ' '.join(input_string.split('_')).capitalize()
 
 
+def sentence_case_to_snake_case(input_string, capitalize=False):
+    return '_'.join((word.capitalize() if capitalize else word for word in input_string.split(' ')))
+
+
 def snake_case_to_pascal_case(input_string):
     return ''.join((word.capitalize() for word in input_string.split('_')))
 

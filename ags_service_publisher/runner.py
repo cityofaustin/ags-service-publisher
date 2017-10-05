@@ -10,8 +10,16 @@ from extrafilters import superfilter
 from helpers import asterisk_tuple, empty_tuple
 from logging_io import setup_logger, setup_console_log_handler, setup_file_log_handler, default_log_dir
 from publishing import cleanup_config, publish_config
-from reports import find_mxd_data_sources, write_report
-from services import analyze_services, find_service_dataset_usages, restart_services, test_services, list_service_layer_fields
+from reporters import (
+    DatasetGeometryStatisticsReporter,
+    DatasetUsagesReporter,
+    MxdDataSourcesReporter,
+    ServiceAnalysisReporter,
+    ServiceHealthReporter,
+    ServiceLayerFieldsReporter,
+    default_report_dir
+)
+from services import restart_services, test_services
 
 log = setup_logger(__name__)
 root_logger = setup_logger()
@@ -24,21 +32,27 @@ class Runner:
         quiet=False,
         log_to_file=True,
         log_dir=default_log_dir,
-        config_dir=default_config_dir
+        config_dir=default_config_dir,
+        report_dir=default_report_dir
     ):
+        self.logger = log
+        self.root_logger = root_logger
+        self.console_log_handler = None
         self.verbose = verbose
         self.quiet = quiet
         self.log_to_file = log_to_file
         self.log_dir = log_dir
         self.config_dir = config_dir
+        self.report_dir = report_dir
 
         if not self.quiet:
-            setup_console_log_handler(root_logger, self.verbose)
+            self.console_log_handler = setup_console_log_handler(root_logger, self.verbose)
         if not self.verbose:
             logging.getLogger('requests').setLevel(logging.WARNING)
         if self.log_to_file:
             log.debug('Using log directory: {}'.format(self.log_dir))
         log.debug('Using config directory: {}'.format(self.config_dir))
+        log.debug('Using report directory: {}'.format(self.report_dir))
 
     def run_batch_publishing_job(
         self,
@@ -117,32 +131,22 @@ class Runner:
         output_filename=None,
         output_format='csv',
     ):
-        header_row = (
-            'AGS Instance',
-            'Service Folder',
-            'Service Name',
-            'Service Type',
-            'Dataset Name',
-            'User',
-            'Database',
-            'Version',
-            'Dataset Path'
+        reporter = DatasetUsagesReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
         )
-        report_data = sorted(
-            find_service_dataset_usages(
-                included_datasets, excluded_datasets,
-                included_users, excluded_users,
-                included_databases, excluded_databases,
-                included_versions, excluded_versions,
-                included_services, excluded_services,
-                included_service_folders, excluded_service_folders,
-                included_instances, excluded_instances,
-                included_envs, excluded_envs,
-                self.config_dir
-            ),
-            key=lambda x: (x[4], x[1], x[2], x[0])
+        return reporter.create_report(
+            included_datasets, excluded_datasets,
+            included_users, excluded_users,
+            included_databases, excluded_databases,
+            included_versions, excluded_versions,
+            included_services, excluded_services,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_envs, excluded_envs,
+            self.config_dir
         )
-        return write_report(report_data, header_row, 'dataset usages', output_filename, output_format)
 
     def run_mxd_data_sources_report(
         self,
@@ -158,7 +162,12 @@ class Runner:
         output_format='csv',
         warn_on_validation_errors=False
     ):
-        report_data = find_mxd_data_sources(
+        reporter = MxdDataSourcesReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
+        )
+        return reporter.create_report(
             included_configs, excluded_configs,
             included_users, excluded_users,
             included_databases, excluded_databases,
@@ -170,22 +179,6 @@ class Runner:
             warn_on_validation_errors,
             self.config_dir
         )
-        header_row = (
-            'Config',
-            'Environment',
-            'Service Name',
-            'MXD Path',
-            'MXD Type',
-            'Layer Name',
-            'Dataset Name',
-            'Workspace Path',
-            'Data Source Is Broken',
-            'User',
-            'Database',
-            'Version',
-            'Definition Query'
-        )
-        return write_report(report_data, header_row, 'MXD data sources', output_filename, output_format)
 
     def generate_tokens(
         self,
@@ -300,23 +293,12 @@ class Runner:
         output_format='csv',
         warn_on_errors=False
     ):
-        header_row = (
-            'Environment',
-            'Instance',
-            'Service Folder',
-            'Service Name',
-            'Service Type',
-            'Configured State',
-            'Realtime State',
-            'Request URL',
-            'Request Method',
-            'HTTP Status Code',
-            'HTTP Status Reason',
-            'Error Message',
-            'Response Time'
+        reporter = ServiceHealthReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
         )
-
-        report_data = test_services(
+        return reporter.create_report(
             included_services, excluded_services,
             included_service_folders, excluded_service_folders,
             included_instances, excluded_instances,
@@ -324,8 +306,6 @@ class Runner:
             warn_on_errors,
             self.config_dir
         )
-
-        return write_report(report_data, header_row, 'service health', output_filename, output_format)
 
     def run_service_analysis_report(
         self,
@@ -337,22 +317,12 @@ class Runner:
         output_format='csv',
         warn_on_errors=False
     ):
-        header_row = (
-            'Environment',
-            'Instance',
-            'Service Folder',
-            'Service Name',
-            'Service Type',
-            'File Path',
-            'Severity',
-            'Code',
-            'Message',
-            'Layer Name',
-            'Dataset Name',
-            'Workspace Path'
+        reporter = ServiceAnalysisReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
         )
-
-        report_data = analyze_services(
+        return reporter.create_report(
             included_envs, excluded_envs,
             included_service_folders, excluded_service_folders,
             included_instances, excluded_instances,
@@ -360,8 +330,6 @@ class Runner:
             warn_on_errors,
             self.config_dir
         )
-
-        return write_report(report_data, header_row, 'service analysis', output_filename, output_format)
 
     def run_service_layer_fields_report(
         self,
@@ -373,35 +341,12 @@ class Runner:
         output_format='csv',
         warn_on_errors=False
     ):
-        header_row = (
-            'Environment',
-            'Instance',
-            'Service Folder',
-            'Service Name',
-            'Service Type',
-            'Error',
-            'MXD Path',
-            'Layer Name',
-            'Dataset Name',
-            'Workspace Path',
-            'Data Source Is Broken',
-            'User',
-            'Database',
-            'Version',
-            'Definition Query',
-            'Show Labels',
-            'Symbology Type',
-            'Symbology Field',
-            'Field Name',
-            'Field Type',
-            'Has Index',
-            'Needs Index',
-            'In Definition Query',
-            'In Label Class Expression',
-            'In Label Class SQL Query'
+        reporter = ServiceLayerFieldsReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
         )
-
-        report_data = list_service_layer_fields(
+        return reporter.create_report(
             included_envs, excluded_envs,
             included_service_folders, excluded_service_folders,
             included_instances, excluded_instances,
@@ -410,4 +355,32 @@ class Runner:
             self.config_dir
         )
 
-        return write_report(report_data, header_row, 'dataset fields', output_filename, output_format)
+    def run_dataset_geometry_statistics_report(
+        self,
+        included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
+        included_users=asterisk_tuple, excluded_users=empty_tuple,
+        included_databases=asterisk_tuple, excluded_databases=empty_tuple,
+        included_versions=asterisk_tuple, excluded_versions=empty_tuple,
+        included_services=asterisk_tuple, excluded_services=empty_tuple,
+        included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+        output_filename=None,
+        output_format='csv'
+    ):
+        reporter = DatasetGeometryStatisticsReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
+        )
+        return reporter.create_report(
+            included_datasets, excluded_datasets,
+            included_users, excluded_users,
+            included_databases, excluded_databases,
+            included_versions, excluded_versions,
+            included_services, excluded_services,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_envs, excluded_envs,
+            self.config_dir
+        )
