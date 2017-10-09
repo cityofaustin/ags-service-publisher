@@ -2,4 +2,6 @@
 *.pyc
 config
 logs
+reports
 *.egg-info
+
