@@ -31,7 +31,10 @@ class BaseReporter(object):
         return self.write_report(self.wrap_report_records(*args, **kwargs))
 
     def write_report(self, report_data):
-        if self.output_dir and os.path.isdir(self.output_dir):
+        if self.output_dir:
+            if not os.path.isdir(self.output_dir):
+                log.debug('Creating report directory: {}'.format(self.output_dir))
+                os.mkdir(self.output_dir)
             if not self.output_filename:
                 self.output_filename = '{}_Report_{}{}{}'.format(
                     os.path.join(self.output_dir, sentence_case_to_snake_case(self.report_type, capitalize=True)),
