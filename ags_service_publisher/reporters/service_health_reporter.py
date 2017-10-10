@@ -37,8 +37,6 @@ class ServiceHealthReporter(BaseReporter):
         included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
         included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-        output_filename=None,
-        output_format='csv',
         warn_on_errors=False,
         config_dir=default_config_dir
     ):
