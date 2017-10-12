@@ -448,8 +448,13 @@ def restart_services(
                     if superfilter((service_name,), included_services, excluded_services):
                         if not include_running_services:
                             status = get_service_status(server_url, token, service_name, service_folder, service_type)
-                            if status.get('configuredState') == 'STARTED':
-                                pass
+                            configured_state = status.get('configuredState')
+                            if configured_state == 'STARTED':
+                                log.debug(
+                                    'Skipping restart of service {}/{} ({}) because its configured state is {} and include_running_services is {}'
+                                    .format(service_folder, service_name, service_type, configured_state, include_running_services)
+                                )
+                                continue
                             restart_service(server_url, token, service_name, service_folder, service_type)
                         restart_service(server_url, token, service_name, service_folder, service_type)
 
