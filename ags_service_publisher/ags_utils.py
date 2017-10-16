@@ -349,7 +349,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
 
     try:
         service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
-        configured_state = service_status.get('configuredState'),
+        configured_state = service_status.get('configuredState')
         realtime_state = service_status.get('realTimeState')
         if realtime_state != 'STARTED':
             log.warn(
@@ -478,17 +478,62 @@ def start_service(server_url, token, service_name, service_folder=None, service_
         raise
 
 
-def restart_service(server_url, token, service_name, service_folder=None, service_type='MapServer'):
+def restart_service(
+    server_url,
+    token,
+    service_name,
+    service_folder=None,
+    service_type='MapServer',
+    delay=30,
+    max_retries=3,
+    test_after_restart=True
+):
     log.info('Restarting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     stop_service(server_url, token, service_name, service_folder, service_type)
+    log.debug(
+        'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
+        .format(delay, service_name, server_url, service_folder)
+    )
+    time.sleep(delay)
     start_service(server_url, token, service_name, service_folder, service_type)
-    service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
-    configured_state = service_status.get('configuredState'),
-    realtime_state = service_status.get('realTimeState')
-    if realtime_state != 'STARTED':
+    succeeded = False
+    configured_state = None
+    realtime_state = None
+    error_message = None
+    retry_count = 0
+    while retry_count < max_retries:
+        retry_count += 1
+        log.debug(
+            'Waiting {} seconds before checking status of service {} (URL {}, Folder: {})'
+            .format(delay, service_name, server_url, service_folder)
+        )
+        time.sleep(delay)
+        log.debug('Status check attempt #{} of {}'.format(retry_count, max_retries))
+        service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
+        configured_state = service_status.get('configuredState')
+        realtime_state = service_status.get('realTimeState')
+        if realtime_state == 'STARTED':
+            if test_after_restart:
+                test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors=True)
+                configured_state = test_data.get('configured_state')
+                realtime_state = test_data.get('realtime_state')
+                error_message = test_data.get('error_message')
+                if realtime_state == 'STARTED' and not error_message:
+                    succeeded = True
+            else:
+                succeeded = True
+            if succeeded:
+                break
+
+    if succeeded:
+        log.info(
+            '{} service {}/{} successfully restarted after {} attempts (configured state: {}, realtime state: {})'
+            .format(service_type, service_folder, service_name, retry_count, configured_state, realtime_state)
+        )
+    else:
         raise RuntimeError(
-            '{} service {}/{} was not successfully restarted! (configured state: {}, realtime state: {})'
-            .format(service_type, service_folder, service_name, configured_state, realtime_state)
+            '{} service {}/{} was not successfully restarted after {} attempts! (configured state: {}, realtime state: {}, error message: {})'
+            .format(service_type, service_folder, service_name, retry_count, configured_state, realtime_state, error_message)
         )
 
 

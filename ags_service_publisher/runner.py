@@ -251,7 +251,10 @@ class Runner:
         included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
         included_envs=asterisk_tuple, excluded_envs=empty_tuple,
-        include_running_services=True
+        include_running_services=True,
+        delay=30,
+        max_retries=3,
+        test_after_restart=True
     ):
         log.info('Batch restarting services')
 
@@ -261,6 +264,9 @@ class Runner:
             included_instances, excluded_instances,
             included_envs, excluded_envs,
             include_running_services,
+            delay,
+            max_retries,
+            test_after_restart,
             self.config_dir
         )
 

@@ -426,6 +426,9 @@ def restart_services(
     included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     include_running_services=True,
+    delay=30,
+    max_retries=3,
+    test_after_restart=True,
     config_dir=default_config_dir
 ):
     user_config = get_config('userconfig', config_dir)
@@ -455,8 +458,8 @@ def restart_services(
                                     .format(service_folder, service_name, service_type, configured_state, include_running_services)
                                 )
                                 continue
-                            restart_service(server_url, token, service_name, service_folder, service_type)
-                        restart_service(server_url, token, service_name, service_folder, service_type)
+                            restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart)
+                        restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart)
 
 
 def test_services(
