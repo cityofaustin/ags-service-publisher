@@ -358,7 +358,36 @@ Useful for determining possible performance or other issues with published servi
     ```
 
 **Note:** To generate Service Analysis reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
-    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).    
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
+
+#### Service Layer Fields Report
+
+This report type queries ArcGIS Server for a list of MapServer services, finds the source MXD used to publish each service, and for each layer in the MXD, reports information about its data source, labels, symbology, fields and indexes.
+
+Useful for determining which fields are being used by a service and whether they are indexed or should be indexed.
+
+The report will output one record for each field in a given service layer, showing whether it has labeling enabled, its symbology type, the field name, field type, whether the field is indexed or should be indexed based on various criteria such as being referenced in the definition query, label classes, or symbology. Shape fields without a spatial index will be indicated as needing an index.
+
+**Note:**  The `warn_on_errors` argument can be set to `True` (i.e. `warn_on_errors=True`) when running this and many other functions of AGS Service Publisher. An error can occur while running this report if the MXD referenced by a service is not accessible. If this occurs, setting `warn_on_errors` to `True` will cause the script to report the error and continue with the rest of the services.
+
+##### Examples:
+
+- Generate a report in CSV format of the layers and fields of all the services within the `CouncilDistrictMap` service
+    folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_service_layer_fields_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Layer-Fields-Report.csv')"
+    ```
+
+- Generate a report in CSV format of the layers and fields of all services on the `coagisd1` ArcGIS Server instance defined
+    in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_service_layer_fields_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service-Layer-Fields-Report.csv')"
+    ```
+
+**Note:** To generate Service Layer Field reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 
 ### Generate tokens
