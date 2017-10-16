@@ -458,6 +458,8 @@ Useful for determining the size and geometric complexity of the datasets being u
     - `log_dir`: allows you to override which directory is used for storing log files. Defaults to the `./logs`
         directory beneath the script's root directory. Alternatively, you can set the `AGS_SERVICE_PUBLISHER_LOG_DIR`
         environment variable to your desired directory.
+    - `report_dir`: allows you to override which directory is used for writing reports. Default to the `./reports` directory beneath the script's root directory. Alternatively, you can set the `AGS_SERVICE_PUBLISHER_REPORT_DIR` environment variable to your desired directory.
+      - Note that if the `output_filename` parameter is specified to the reporter function, it will take precedence over the `report_dir` value, unless the `output_filename` value does not include a path component, in which case the report will be placed in the `report_dir` directory and be given the `output_filename`. If no `output_filename` value is provided, one will be automatically generated based on the report type and the current date.
 
 ## TODO
 
