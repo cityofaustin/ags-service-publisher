@@ -389,6 +389,27 @@ The report will output one record for each field in a given service layer, showi
 **Note:** To generate Service Layer Field reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
     for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
+#### Dataset Geometry Statistics Report
+
+This report type queries ArcGIS Server for the datasets used by each service, and for each dataset, reports information about its data source, shape type, feature count, average part count, and average vertex count.
+
+Useful for determining the size and geometric complexity of the datasets being used by services.
+
+##### Examples:
+
+- Generate a report in CSV format of the dataset geometry statistics of all the services within the `CouncilDistrictMap` service folder on on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_dataset_geometry_statistics_report(included_service_folders=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Service-Layer-Fields-Report.csv')"
+    ```
+
+- Generate a report in CSV format of the dataset geometry statistics of all services on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_dataset_geometry_statistics_report(included_instances=['coagisd1'], output_filename='../ags_service_reports/coagisd1-Service-Layer-Fields-Report.csv')"
+    ```
+
+**Note:** To generate Dataset Geometry Statistics reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens) for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
 ### Generate tokens
 
