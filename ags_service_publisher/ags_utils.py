@@ -488,14 +488,6 @@ def restart_service(
     max_retries=3,
     test_after_restart=True
 ):
-    log.info('Restarting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
-    stop_service(server_url, token, service_name, service_folder, service_type)
-    log.debug(
-        'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
-        .format(delay, service_name, server_url, service_folder)
-    )
-    time.sleep(delay)
-    start_service(server_url, token, service_name, service_folder, service_type)
     succeeded = False
     configured_state = None
     realtime_state = None
@@ -503,12 +495,22 @@ def restart_service(
     retry_count = 0
     while retry_count < max_retries:
         retry_count += 1
+        log.info(
+            'Restarting service {} (URL {}, Folder: {}, attempt #{} of {})'
+            .format(service_name, server_url, service_folder, retry_count, max_retries)
+         )
+        stop_service(server_url, token, service_name, service_folder, service_type)
+        log.debug(
+            'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
+            .format(delay, service_name, server_url, service_folder)
+        )
+        time.sleep(delay)
+        start_service(server_url, token, service_name, service_folder, service_type)
         log.debug(
             'Waiting {} seconds before checking status of service {} (URL {}, Folder: {})'
             .format(delay, service_name, server_url, service_folder)
         )
         time.sleep(delay)
-        log.debug('Status check attempt #{} of {}'.format(retry_count, max_retries))
         service_status = get_service_status(server_url, token, service_name, service_folder, service_type)
         configured_state = service_status.get('configuredState')
         realtime_state = service_status.get('realTimeState')
