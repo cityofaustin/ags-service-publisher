@@ -74,7 +74,17 @@ class BaseReporter(object):
         return self.output_filename
 
     def wrap_report_records(self, *args, **kwargs):
-        return (self.record_class(*record) for record in self.generate_report_records(*args, **kwargs))
+        records = self.generate_report_records(*args, **kwargs)
+        if self.record_class:
+            for record in records:
+                if isinstance(record, collections.Mapping):
+                    record_instance = self.record_class(**{k: record[k] for k in self.column_mappings.keys() if k in record})
+                else:
+                    record_instance = self.record_class(*record)
+                yield record_instance
+        else:
+            for record in records:
+                yield record
 
     @staticmethod
     @abc.abstractmethod
@@ -82,14 +92,17 @@ class BaseReporter(object):
         return
 
     @staticmethod
-    def setup_subclass(column_mappings, record_class_name):
-        record_class = collections.namedtuple(
-            record_class_name,
-            column_mappings.keys()
-        )
+    def setup_subclass(column_mappings, record_class_name=None):
+        if record_class_name:
+            record_class = collections.namedtuple(
+                record_class_name,
+                column_mappings.keys()
+            )
 
-        # Set default field values to None in case they are not provided
-        record_class.__new__.__defaults__ = (None,) * len(record_class._fields)
+            # Set default field values to None in case they are not provided
+            record_class.__new__.__defaults__ = (None,) * len(record_class._fields)
+        else:
+            record_class = None
 
         header_row = column_mappings.values()
         return record_class, header_row

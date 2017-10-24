@@ -5,6 +5,7 @@ import datetime
 import os
 import tempfile
 from copy import deepcopy
+from itertools import chain
 from shutil import rmtree
 
 from ags_utils import (
@@ -55,10 +56,16 @@ def analyze_services(
                         service_type in ('MapServer', 'GeocodeServer') and
                         superfilter((service_name,), included_services, excluded_services)
                     ):
-                        file_path = None
+                        service_props = dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type
+                        )
                         try:
                             service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type)
-                            file_path = service_manifest['resources'][0]['onPremisePath']
+                            service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
                             file_type = {
                                 'MapServer': 'MXD',
                                 'GeocodeServer': 'Locator'
@@ -102,46 +109,38 @@ def analyze_services(
 
                                 for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
                                     items = analysis[key]
+                                    severity = key[:-1].title()
                                     if items:
                                         log.info('----' + key.upper() + '---')
                                         for ((message, code), layerlist) in items.iteritems():
                                             code = '{:05d}'.format(code)
                                             log_method('    {} (CODE {})'.format(message, code))
                                             code = '="{}"'.format(code)
+                                            issue_props = dict(
+                                                severity=severity,
+                                                code=code,
+                                                message=message
+                                            )
                                             if not layerlist:
-                                                yield (
-                                                    env_name,
-                                                    ags_instance,
-                                                    service_folder,
-                                                    service_name,
-                                                    service_type,
-                                                    file_path,
-                                                    key[:-1].title(),
-                                                    code,
-                                                    message,
-                                                    None,
-                                                    None,
-                                                    None
-                                                )
+                                                yield dict(chain(
+                                                    service_props.iteritems(),
+                                                    issue_props.iteritems()
+                                                ))
                                             else:
                                                 log_method('       applies to:')
                                                 for layer in layerlist:
                                                     layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-                                                    log_method('           {}'.format(layer_name))
-                                                    yield (
-                                                        env_name,
-                                                        ags_instance,
-                                                        service_folder,
-                                                        service_name,
-                                                        service_type,
-                                                        file_path,
-                                                        key[:-1].title(),
-                                                        code,
-                                                        message,
-                                                        layer_name,
-                                                        layer.datasetName,
-                                                        layer.workspacePath
+                                                    layer_props = dict(
+                                                        dataset_name=layer.datasetName,
+                                                        workspace_path=layer.workspacePath,
+                                                        layer_name=layer_name
                                                     )
+                                                    log_method('           {}'.format(layer_name))
+                                                    yield dict(chain(
+                                                        service_props.iteritems(),
+                                                        issue_props.iteritems(),
+                                                        layer_props.iteritems()
+                                                    ))
                                             log_method('')
 
                                 if analysis['errors']:
@@ -160,19 +159,10 @@ def analyze_services(
                             if not warn_on_errors:
                                 raise
                             else:
-                                yield (
-                                    env_name,
-                                    ags_instance,
-                                    service_folder,
-                                    service_name,
-                                    service_type,
-                                    file_path,
-                                    'Error',
-                                    None,
-                                    e.message,
-                                    None,
-                                    None,
-                                    None
+                                yield dict(
+                                    severity='Error',
+                                    message=e.message,
+                                    **service_props
                                 )
 
 
@@ -206,14 +196,22 @@ def list_service_layer_fields(
                         service_type == 'MapServer' and
                         superfilter((service_name,), included_services, excluded_services)
                     ):
-                        mxd_path = None
+                        service_props = dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type,
+                            ags_connection=ags_connection
+                        )
                         try:
                             service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type)
-                            mxd_path = service_manifest['resources'][0]['onPremisePath']
+                            service_props['mxd_path'] = mxd_path = service_manifest['resources'][0]['onPremisePath']
                             log.info(
-                                'Listing layers and fields for {} service {}/{} on ArcGIS Server instance {} '
-                                '(Connection File: {}, MXD Path: {})'
-                                .format(service_type, service_folder, service_name, ags_instance, ags_connection, mxd_path)
+                                'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
+                                'on ArcGIS Server instance {ags_instance} '
+                                '(Connection File: {ags_connection}, MXD Path: {mxd_path})'
+                                .format(**service_props)
                             )
                             if not arcpy.Exists(mxd_path):
                                 raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
@@ -223,21 +221,9 @@ def list_service_layer_fields(
                                     (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
                                     (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
                                 ):
-                                    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+                                    layer_name = getattr(layer, 'longName', layer.name)
                                     try:
-                                        (
-                                            layer_name,
-                                            dataset_name,
-                                            workspace_path,
-                                            is_broken,
-                                            user,
-                                            database,
-                                            version,
-                                            definition_query,
-                                            show_labels,
-                                            symbology_type,
-                                            symbology_field
-                                        ) = get_layer_properties(layer)
+                                        layer_props = get_layer_properties(layer)
                                     except StandardError as e:
                                         log.exception(
                                             'An error occurred while retrieving properties for layer {} in MXD {}'
@@ -246,68 +232,34 @@ def list_service_layer_fields(
                                         if not warn_on_errors:
                                             raise
                                         else:
-                                            yield (
-                                                env_name,
-                                                ags_instance,
-                                                service_folder,
-                                                service_name,
-                                                service_type,
-                                                'Error retrieving layer properties: {}'.format(e.message),
-                                                mxd_path,
-                                                layer_name
+                                            yield dict(
+                                                error='Error retrieving layer properties: {}'.format(e.message),
+                                                layer_name=layer_name,
+                                                **service_props
                                             )
                                             continue
                                     try:
-                                        if is_broken:
+                                        if layer_props['is_broken']:
                                             raise RuntimeError(
                                                 'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
                                                     layer_name,
-                                                    layer.dataSource if hasattr(layer, 'dataSource') else 'n/a'
+                                                    getattr(layer, 'dataSource', 'n/a')
                                                 )
                                             )
-                                        for (
-                                            field_name,
-                                            field_type,
-                                            has_index,
-                                            field_in_definition_query,
-                                            field_in_label_class_expression,
-                                            field_in_label_class_sql_query
-                                        ) in get_layer_fields(layer):
-                                            needs_index = not has_index and (
-                                                field_in_definition_query or
-                                                field_in_label_class_expression or
-                                                field_in_label_class_sql_query or
-                                                field_name == symbology_field or
-                                                field_type == 'Geometry'
+                                        for field_props in get_layer_fields(layer):
+                                            field_props['needs_index'] = not field_props['has_index'] and (
+                                                field_props['in_definition_query'] or
+                                                field_props['in_label_class_expression'] or
+                                                field_props['in_label_class_sql_query'] or
+                                                field_props['field_name'] == layer_props['symbology_field'] or
+                                                field_props['field_type'] == 'Geometry'
                                             )
 
-                                            yield (
-                                                env_name,
-                                                ags_instance,
-                                                service_folder,
-                                                service_name,
-                                                service_type,
-                                                None,
-                                                mxd_path,
-                                                layer_name,
-                                                dataset_name,
-                                                workspace_path,
-                                                is_broken,
-                                                user,
-                                                database,
-                                                version,
-                                                definition_query,
-                                                show_labels,
-                                                symbology_type,
-                                                symbology_field,
-                                                field_name,
-                                                field_type,
-                                                has_index,
-                                                needs_index,
-                                                field_in_definition_query,
-                                                field_in_label_class_expression,
-                                                field_in_label_class_sql_query
-                                            )
+                                            yield dict(chain(
+                                                service_props.iteritems(),
+                                                layer_props.iteritems(),
+                                                field_props.iteritems()
+                                            ))
                                     except StandardError as e:
                                         log.exception(
                                             'An error occurred while listing fields for layer {} in MXD {}'
@@ -316,43 +268,25 @@ def list_service_layer_fields(
                                         if not warn_on_errors:
                                             raise
                                         else:
-                                            yield (
-                                                env_name,
-                                                ags_instance,
-                                                service_folder,
-                                                service_name,
-                                                service_type,
-                                                'Error retrieving layer fields: {}'.format(e.message),
-                                                mxd_path,
-                                                layer_name,
-                                                dataset_name,
-                                                workspace_path,
-                                                is_broken,
-                                                user,
-                                                database,
-                                                version,
-                                                definition_query,
-                                                show_labels,
-                                                symbology_type,
-                                                symbology_field
+                                            yield dict(chain(
+                                                service_props.iteritems(),
+                                                layer_props.iteritems()
+                                            ),
+                                                error='Error retrieving layer fields: {}'.format(e.message)
                                             )
                         except StandardError as e:
                             log.exception(
-                                'An error occurred while listing layers and fields for {} service {}/{} on '
-                                'ArcGIS Server instance {} (Connection File: {})'
-                                .format(service_type, service_folder, service_name, ags_instance, ags_connection)
+                                'An error occurred while listing layers and fields for '
+                                '{service_type} service {service_folder}/{service_name} on '
+                                'ArcGIS Server instance {ags_instance} (Connection File: {ags_connection})'
+                                .format(**service_props)
                             )
                             if not warn_on_errors:
                                 raise
                             else:
-                                yield (
-                                    env_name,
-                                    ags_instance,
-                                    service_folder,
-                                    service_name,
-                                    service_type,
-                                    e.message,
-                                    mxd_path
+                                yield dict(
+                                    error=e.message,
+                                    **service_props
                                 )
 
 
@@ -384,15 +318,15 @@ def find_service_dataset_usages(
                 for service in list_services(server_url, token, service_folder):
                     service_name = service['serviceName']
                     service_type = service['type']
+                    service_props = dict(
+                        env_name=env_name,
+                        ags_instance=ags_instance,
+                        service_folder=service_folder,
+                        service_name=service_name,
+                        service_type=service_type
+                    )
                     if superfilter((service_name,), included_services, excluded_services):
-                        for (
-                            dataset_name,
-                            dataset_type,
-                            dataset_path,
-                            user,
-                            database,
-                            version
-                        ) in list_service_workspaces(
+                        for dataset_props in list_service_workspaces(
                             server_url,
                             token,
                             service_name,
@@ -400,24 +334,15 @@ def find_service_dataset_usages(
                             service_type
                         ):
                             if (
-                                superfilter((dataset_name,), included_datasets, excluded_datasets) and
-                                superfilter((user,), included_users, excluded_users) and
-                                superfilter((database,), included_databases, excluded_databases) and
-                                superfilter((version,), included_versions, excluded_versions)
+                                superfilter((dataset_props['dataset_name'],), included_datasets, excluded_datasets) and
+                                superfilter((dataset_props['user'],), included_users, excluded_users) and
+                                superfilter((dataset_props['database'],), included_databases, excluded_databases) and
+                                superfilter((dataset_props['version'],), included_versions, excluded_versions)
                             ):
-                                yield (
-                                    env_name,
-                                    ags_instance,
-                                    service_folder,
-                                    service_name,
-                                    service_type,
-                                    dataset_name,
-                                    dataset_type,
-                                    user,
-                                    database,
-                                    version,
-                                    dataset_path
-                                )
+                                yield dict(chain(
+                                    service_props.iteritems(),
+                                    dataset_props.iteritems()
+                                ))
 
 
 def restart_services(
@@ -489,20 +414,13 @@ def test_services(
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
                         test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors)
-                        yield (
-                            env_name,
-                            ags_instance,
-                            service_folder,
-                            service_name,
-                            service_type,
-                            test_data.get('configured_state'),
-                            test_data.get('realtime_state'),
-                            test_data.get('request_url'),
-                            test_data.get('request_method'),
-                            test_data.get('http_status_code'),
-                            test_data.get('http_status_reason'),
-                            test_data.get('error_message'),
-                            test_data.get('response_time')
+                        yield dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type,
+                            **test_data
                         )
 
 

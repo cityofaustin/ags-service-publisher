@@ -8,6 +8,23 @@ import os
 import sys
 
 
+class NoDefaultProvided(object):
+    pass
+
+
+def deep_get(obj, attr, default=NoDefaultProvided):
+    try:
+        return reduce(
+            lambda d, k: d.get(k, default) if isinstance(d, dict) else getattr(d, k, default),
+            attr.split('.'),
+            obj
+        )
+    except (KeyError, NameError, AttributeError):
+        if default != NoDefaultProvided:
+            return default
+        raise
+
+
 def snake_case_to_camel_case(input_string):
     return ''.join((word if i == 0 else word.capitalize() for i, word in enumerate(input_string.split('_'))))
 

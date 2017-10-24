@@ -133,14 +133,12 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         datasets = parse_datasets_from_service_manifest(data)
         conn_props = parse_connection_properties_from_service_manifest(data)
 
-        for dataset_name, dataset_type, dataset_path in datasets:
-            yield (
-                dataset_name,
-                dataset_type,
-                dataset_path,
-                conn_props.get('USER', 'n/a'),
-                parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
-                conn_props.get('VERSION', 'n/a')
+        for dataset_props in datasets:
+            yield dict(
+                user=conn_props.get('USER', 'n/a'),
+                database=parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
+                version=conn_props.get('VERSION', 'n/a'),
+                **dataset_props
             )
     except StandardError:
         log.exception(
@@ -547,7 +545,11 @@ def parse_datasets_from_service_manifest(data):
         dataset_path = subelement.find('OnPremisePath').text
         dataset_name = os.path.basename(dataset_path)
         dataset_type = subelement.find('DatasetType').text
-        yield dataset_name, dataset_type, dataset_path
+        yield dict(
+            dataset_name=dataset_name,
+            dataset_type=dataset_type,
+            dataset_path=dataset_path
+        )
 
 
 def parse_connection_properties_from_service_manifest(data):

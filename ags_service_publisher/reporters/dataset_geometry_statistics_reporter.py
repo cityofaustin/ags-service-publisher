@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import collections
+from itertools import chain
 
 from ..datasources import get_geometry_statistics
 from ..logging_io import setup_logger
@@ -36,52 +37,28 @@ class DatasetGeometryStatisticsReporter(BaseReporter):
     @staticmethod
     def generate_report_records(*args, **kwargs):
         cache = {}
-        for (
-            env_name,
-            ags_instance,
-            service_folder,
-            service_name,
-            service_type,
-            dataset_name,
-            dataset_type,
-            user,
-            database,
-            version,
-            dataset_path
-        ) in (
-            find_service_dataset_usages(*args, **kwargs)
-        ):
+        for dataset_props in find_service_dataset_usages(*args, **kwargs):
             error = None
-            if (dataset_name, database, version) in cache:
-                log.debug('Geometry statistics for dataset {} found in cache'.format(dataset_name))
-                shape_type, feature_count, avg_part_count, avg_vertex_count = cache[(dataset_name, database, version)]
+            key = tuple(dataset_props[field] for field in ('dataset_name', 'database', 'version'))
+            if key in cache:
+                log.debug('Geometry statistics for dataset {} found in cache'.format(dataset_props['dataset_name']))
+                geometry_stats = cache[key]
             else:
-                shape_type = feature_count = avg_part_count = avg_vertex_count = None
                 try:
-                    shape_type, feature_count, avg_part_count, avg_vertex_count = get_geometry_statistics(dataset_path)
-                    cache[(dataset_name, database, version)] = (shape_type, feature_count, avg_part_count, avg_vertex_count)
+                    geometry_stats = get_geometry_statistics(dataset_props['dataset_path'])
+                    cache[key] = geometry_stats
                 except StandardError as e:
                     log.exception(
-                        'An error occurred while getting the statistics for dataset: {}, AGS instance: {}, service: '
-                        '{}/{} ({}), dataset path: {}'
-                        .format(dataset_name, ags_instance, service_folder, service_name, service_type, dataset_path)
+                        'An error occurred while getting the statistics for dataset: {dataset_name}, '
+                        'AGS instance: {ags_instance}, '
+                        'service: {service_folder}/{service_name} ({service_type}), '
+                        'dataset path: {dataset_path}'
+                        .format(**dataset_props)
                     )
                     error = e.message
-            yield (
-                env_name,
-                ags_instance,
-                service_folder,
-                service_name,
-                service_type,
-                dataset_name,
-                dataset_type,
-                user,
-                database,
-                version,
-                dataset_path,
-                error,
-                shape_type,
-                feature_count,
-                avg_part_count,
-                avg_vertex_count
+            yield dict(chain(
+                dataset_props.iteritems(),
+                geometry_stats.iteritems()
+            ),
+                error=error
             )

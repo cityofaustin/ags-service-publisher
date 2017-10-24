@@ -72,25 +72,18 @@ class MxdDataSourcesReporter(BaseReporter):
                         def generate_mxd_data_sources_report_rows(mxd_path, mxd_type):
                             for layer_properties in get_mxd_data_sources(mxd_path):
                                 if (
-                                    superfilter((layer_properties.dataset_name,), included_datasets, excluded_datasets) and
-                                    superfilter((layer_properties.user,), included_users, excluded_users) and
-                                    superfilter((layer_properties.database,), included_databases, excluded_databases) and
-                                    superfilter((layer_properties.version,), included_versions, excluded_versions)
+                                    superfilter((layer_properties['dataset_name'],), included_datasets, excluded_datasets) and
+                                    superfilter((layer_properties['user'],), included_users, excluded_users) and
+                                    superfilter((layer_properties['database'],), included_databases, excluded_databases) and
+                                    superfilter((layer_properties['version'],), included_versions, excluded_versions)
                                 ):
-                                    yield (
-                                        config_name,
-                                        env_name,
-                                        service_name,
-                                        mxd_path,
-                                        mxd_type,
-                                        layer_properties.layer_name,
-                                        layer_properties.dataset_name,
-                                        layer_properties.workspace_path,
-                                        layer_properties.is_broken,
-                                        layer_properties.user,
-                                        layer_properties.database,
-                                        layer_properties.version,
-                                        layer_properties.definition_query
+                                    yield dict(
+                                        config_name=config_name,
+                                        env_name=env_name,
+                                        service_name=service_name,
+                                        mxd_path=mxd_path,
+                                        mxd_type=mxd_type,
+                                        **layer_properties
                                     )
 
                         if include_staging_mxds:

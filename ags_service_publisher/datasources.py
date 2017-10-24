@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import os
 import re
 
-from helpers import list_files_in_dir
+from helpers import list_files_in_dir, deep_get
 from logging_io import setup_logger
 
 log = setup_logger(__name__)
@@ -60,36 +60,57 @@ def get_layer_properties(layer):
     log.debug('Getting properties for layer: {}'.format(layer_name))
 
     if hasattr(layer, 'workspacePath'):
-        user = 'n/a'
-        database = 'n/a'
-        version = 'n/a'
-        definition_query = layer.definitionQuery if hasattr(layer, 'definitionQuery') else 'n/a'
-        show_labels = layer.showLabels if hasattr(layer, 'showLabels') else 'n/a'
-        symbology_type = layer.symbologyType if hasattr(layer, 'symbologyType') else 'n/a'
-        symbology_field = layer.symbology.valueField if (hasattr(layer, 'symbology') and hasattr(layer.symbology, 'valueField')) else 'n/a'
-        if hasattr(layer, 'serviceProperties'):
-            service_props = layer.serviceProperties
-            user = service_props.get('UserName', 'n/a')
-            version = service_props.get('Version', 'n/a')
-            database = parse_database_from_service_string(service_props.get('Service', 'n/a'))
-
-        log.debug(
-            'Layer name: {}, Dataset name: {}, Workspace path: {}, Data source is broken: {}, User: {}, Database: {}, Version: {}, Definition query: {}, Show labels: {}, Symbology type: {}, Symbology field: {}'
-            .format(layer_name, layer.datasetName, layer.workspacePath, layer.isBroken, user, database, version, definition_query, show_labels, symbology_type, symbology_field)
-        )
-        return (
-            layer_name,
-            layer.datasetName,
-            layer.workspacePath,
-            layer.isBroken,
-            user,
-            database,
-            version,
+        (
             definition_query,
             show_labels,
             symbology_type,
-            symbology_field
+            symbology_field,
+            user,
+            version,
+            service
+        ) = (
+            deep_get(layer, attr, 'n/a') for attr in (
+                'definitionQuery',
+                'showLabels',
+                'symbologyType',
+                'symbology.valueField',
+                'serviceProperties.UserName',
+                'serviceProperties.Version',
+                'serviceProperties.Service'
+            )
         )
+        database = parse_database_from_service_string(service)
+
+        result = dict(
+            layer_name=layer_name,
+            dataset_name=layer.datasetName,
+            workspace_path=layer.workspacePath,
+            is_broken=layer.isBroken,
+            user=user,
+            database=database,
+            version=version,
+            definition_query=definition_query,
+            show_labels=show_labels,
+            symbology_type=symbology_type,
+            symbology_field=symbology_field
+        )
+
+        log.debug(
+            'Layer name: {layer_name}, '
+            'Dataset name: {dataset_name}, '
+            'Workspace path: {workspace_path}, '
+            'Data source is broken: {is_broken}, '
+            'User: {user}, '
+            'Database: {database}, '
+            'Version: {version}, '
+            'Definition query: {definition_query}, '
+            'Show labels: {show_labels}, '
+            'Symbology type: {symbology_type}, '
+            'Symbology field: {symbology_field}'
+            .format(**result)
+        )
+
+        return result
     else:
         raise RuntimeError('Unsupported layer: {}'.format(layer_name))
 
@@ -101,10 +122,14 @@ def get_layer_fields(layer):
     fields = desc.fields
     indexes = desc.indexes
     for field in fields:
-        has_index = get_field_index(field, indexes)
-        field_in_definition_query = field.name.lower() in layer.definitionQuery if hasattr(layer, 'definitionQuery') else False
-        field_in_expression, field_in_query = find_field_in_label_classes(field, layer.labelClasses) if ((hasattr(layer, 'showLabels') and layer.showLabels) and hasattr(layer, 'labelClasses')) else (False, False)
-        yield (field.name, field.type, has_index, field_in_definition_query, field_in_expression, field_in_query)
+        in_definition_query = field.name.lower() in layer.definitionQuery if hasattr(layer, 'definitionQuery') else False
+        yield dict(
+            field_name=field.name,
+            field_type=field.type,
+            has_index=get_field_index(field, indexes),
+            in_definition_query=in_definition_query,
+            **find_field_in_label_classes(layer, field)
+        )
 
 
 def get_field_index(field, indexes):
@@ -123,18 +148,24 @@ def get_field_index(field, indexes):
     return has_index
 
 
-def find_field_in_label_classes(field, label_classes):
-    field_name = field.name
-    log.debug('Finding occurrences of field {} in label classes'.format(field_name))
-    field_in_expression = False
-    field_in_query = False
-    for label_class in label_classes:
-        if label_class.showClassLabels:
-            if not field_in_expression and label_class.expression:
-                field_in_expression = field_name.lower() in label_class.expression.lower()
-            if not field_in_query and label_class.SQLQuery:
-                field_in_query = field_name.lower() in label_class.SQLQuery.lower()
-    return field_in_expression, field_in_query
+def find_field_in_label_classes(layer, field):
+    in_label_class_expression = in_label_class_sql_query = False
+    if (hasattr(layer, 'showLabels') and layer.showLabels) and hasattr(layer, 'labelClasses'):
+        label_classes = layer.labelClasses
+        field_name = field.name
+        log.debug('Finding occurrences of field {} in label classes'.format(field_name))
+        for label_class in label_classes:
+            if in_label_class_expression and in_label_class_sql_query:
+                break
+            if label_class.showClassLabels:
+                if not in_label_class_expression and label_class.expression:
+                    in_label_class_expression = field_name.lower() in label_class.expression.lower()
+                if not in_label_class_sql_query and label_class.SQLQuery:
+                    in_label_class_sql_query = field_name.lower() in label_class.SQLQuery.lower()
+    return dict(
+        in_label_class_expression=in_label_class_expression,
+        in_label_class_sql_query=in_label_class_sql_query
+    )
 
 
 def parse_database_from_service_string(database):
@@ -199,9 +230,9 @@ def get_geometry_statistics(dataset_path):
     avg_part_count = part_count / feature_count if feature_count > 0 else 0
     avg_vertex_count = vertex_count / feature_count if feature_count > 0 else 0
 
-    return (
-        shape_type,
-        feature_count,
-        avg_part_count,
-        avg_vertex_count
+    return dict(
+        shape_type=shape_type,
+        feature_count=feature_count,
+        avg_part_count=avg_part_count,
+        avg_vertex_count=avg_vertex_count
     )

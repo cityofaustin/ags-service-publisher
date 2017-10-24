@@ -53,5 +53,12 @@ class DatasetUsagesReporter(BaseReporter):
                 included_envs, excluded_envs,
                 config_dir
             ),
-            key=lambda x: (x[4], x[1], x[2], x[0])
+            key=lambda record: tuple(
+                record[field].lower() for field in (
+                    'dataset_name',
+                    'ags_instance',
+                    'service_folder',
+                    'env_name'
+                )
+            )
         )
