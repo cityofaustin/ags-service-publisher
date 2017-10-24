@@ -35,9 +35,6 @@ class Runner:
         config_dir=default_config_dir,
         report_dir=default_report_dir
     ):
-        self.logger = log
-        self.root_logger = root_logger
-        self.console_log_handler = None
         self.verbose = verbose
         self.quiet = quiet
         self.log_to_file = log_to_file
@@ -46,7 +43,7 @@ class Runner:
         self.report_dir = report_dir
 
         if not self.quiet:
-            self.console_log_handler = setup_console_log_handler(root_logger, self.verbose)
+            setup_console_log_handler(root_logger, self.verbose)
         if not self.verbose:
             logging.getLogger('requests').setLevel(logging.WARNING)
         if self.log_to_file:
