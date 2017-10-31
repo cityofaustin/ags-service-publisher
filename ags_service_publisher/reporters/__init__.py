@@ -11,3 +11,4 @@ from mxd_data_sources_reporter import MxdDataSourcesReporter
 from service_analysis_reporter import ServiceAnalysisReporter
 from service_health_reporter import ServiceHealthReporter
 from service_layer_fields_reporter import ServiceLayerFieldsReporter
+from service_publishing_reporter import ServicePublishingReporter

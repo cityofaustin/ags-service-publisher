@@ -29,6 +29,7 @@ def publish_config(
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
+    warn_on_publishing_errors=False,
     warn_on_validation_errors=False
 ):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
@@ -41,7 +42,7 @@ def publish_config(
         env = config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
         if len(ags_instances) > 0:
-            publish_env(
+            for result in publish_env(
                 config,
                 env_name,
                 user_config,
@@ -51,8 +52,10 @@ def publish_config(
                 cleanup_services,
                 service_prefix,
                 service_suffix,
+                warn_on_publishing_errors,
                 warn_on_validation_errors
-            )
+            ):
+                yield result
         else:
             log.warn('No publishable instances specified for environment {}'.format(env_name))
 
@@ -67,11 +70,12 @@ def publish_config_name(
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
+    warn_on_publishing_errors=False,
     warn_on_validation_errors=False
 ):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
-    publish_config(
+    for result in publish_config(
         config,
         config_dir,
         included_envs, excluded_envs,
@@ -81,8 +85,11 @@ def publish_config_name(
         cleanup_services,
         service_prefix,
         service_suffix,
+        warn_on_publishing_errors,
         warn_on_validation_errors
-    )
+    ):
+        result['config_name'] = config_name
+        yield result
 
 
 def publish_env(
@@ -95,6 +102,7 @@ def publish_env(
     cleanup_services=False,
     service_prefix='',
     service_suffix='',
+    warn_on_publishing_errors=False,
     warn_on_validation_errors=False
 ):
     env = config['environments'][env_name]
@@ -129,12 +137,13 @@ def publish_env(
             else:
                 raise RuntimeError(message)
         for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+            file_path = None
             if copy_source_files_from_staging_folder:
                 service_info = source_info[service_name]
                 if service_type == 'MapServer':
-                    source_mxd_path = service_info['source_file']
+                    file_path = source_mxd_path = service_info['source_file']
                     if not source_mxd_path:
-                        source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
+                        file_path = source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
                     if staging_dir:
                         staging_mxd_path = service_info['staging_files'][0]
                         log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
@@ -163,7 +172,7 @@ def publish_env(
                             )
                         del proc
                 if service_type == 'GeocodeServer':
-                    source_locator_path = service_info['source_file']
+                    file_path = source_locator_path = service_info['source_file']
                     if staging_dir:
                         staging_locator_path = service_info['staging_files'][0]
                         log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
@@ -215,10 +224,10 @@ def publish_env(
 
             errors = list()
             for proc, ags_instance in procs:
+                error_message = None
                 if proc.exitcode != 0:
-                    errors.append(
-                        'An error occurred in subprocess {} (pid {}, exitcode {}) '
-                        'while publishing service {}/{} to AGS instance {}'
+                    error_message = 'An error occurred in subprocess {} (pid {}, exitcode {}) ' \
+                        'while publishing service {}/{} to AGS instance {}' \
                         .format(
                             proc.name,
                             proc.pid,
@@ -227,8 +236,18 @@ def publish_env(
                             service_name,
                             ags_instance
                         )
-                    )
-            if len(errors) > 0:
+                    errors.append(error_message)
+                yield dict(
+                    env_name=env_name,
+                    ags_instance=ags_instance,
+                    service_folder=service_folder,
+                    service_name=service_name,
+                    service_type=service_type,
+                    file_path=file_path,
+                    error=error_message,
+                    timestamp=datetime.datetime.now()
+                )
+            if len(errors) > 0 and not warn_on_publishing_errors:
                 log.error(
                     'One or more errors occurred while publishing service {}/{}, aborting.'
                     .format(service_folder, service_name)

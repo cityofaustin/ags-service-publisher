@@ -17,6 +17,7 @@ from reporters import (
     ServiceAnalysisReporter,
     ServiceHealthReporter,
     ServiceLayerFieldsReporter,
+    ServicePublishingReporter,
     default_report_dir
 )
 from services import restart_services, test_services
@@ -61,33 +62,40 @@ class Runner:
         cleanup_services=False,
         service_prefix='',
         service_suffix='',
+        warn_on_publishing_errors=False,
         warn_on_validation_errors=False
     ):
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
         log.info('Batch publishing configs: {}'.format(', '.join(config_name for config_name in configs.keys())))
 
-        for config_name, config in configs.iteritems():
-            log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
-            try:
-                publish_config(
-                    config,
-                    self.config_dir,
-                    included_envs, excluded_envs,
-                    included_instances, excluded_instances,
-                    included_services, excluded_services,
-                    copy_source_files_from_staging_folder,
-                    cleanup_services,
-                    service_prefix,
-                    service_suffix,
-                    warn_on_validation_errors
-                )
-            except StandardError:
-                log.exception('An error occurred while publishing config \'{}\''.format(config_name))
-                log.error('See the log file at {}'.format(log_file_handler.baseFilename))
-                raise
-            finally:
-                if log_file_handler:
-                    root_logger.removeHandler(log_file_handler)
+        def publishing_job_generator():
+            for config_name, config in configs.iteritems():
+                log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
+                try:
+                    for result in publish_config(
+                        config,
+                        self.config_dir,
+                        included_envs, excluded_envs,
+                        included_instances, excluded_instances,
+                        included_services, excluded_services,
+                        copy_source_files_from_staging_folder,
+                        cleanup_services,
+                        service_prefix,
+                        service_suffix,
+                        warn_on_publishing_errors,
+                        warn_on_validation_errors
+                    ):
+                        result['config_name'] = config_name
+                        yield result
+                except StandardError:
+                    log.exception('An error occurred while publishing config \'{}\''.format(config_name))
+                    log.error('See the log file at {}'.format(log_file_handler.baseFilename))
+                    raise
+                finally:
+                    if log_file_handler:
+                        root_logger.removeHandler(log_file_handler)
+
+        return list(publishing_job_generator())
 
     def run_batch_cleanup_job(
         self,
@@ -385,5 +393,39 @@ class Runner:
             included_service_folders, excluded_service_folders,
             included_instances, excluded_instances,
             included_envs, excluded_envs,
+            self.config_dir
+        )
+
+    def run_service_publishing_report(
+        self,
+        included_configs=asterisk_tuple, excluded_configs=empty_tuple,
+        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+        included_services=asterisk_tuple, excluded_services=empty_tuple,
+        copy_source_files_from_staging_folder=True,
+        cleanup_services=False,
+        service_prefix='',
+        service_suffix='',
+        warn_on_publishing_errors=False,
+        warn_on_validation_errors=False,
+        output_filename=None,
+        output_format='csv'
+    ):
+        reporter = ServicePublishingReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
+        )
+        return reporter.create_report(
+            included_configs, excluded_configs,
+            included_envs, excluded_envs,
+            included_instances, excluded_instances,
+            included_services, excluded_services,
+            copy_source_files_from_staging_folder,
+            cleanup_services,
+            service_prefix,
+            service_suffix,
+            warn_on_publishing_errors,
+            warn_on_validation_errors,
             self.config_dir
         )
