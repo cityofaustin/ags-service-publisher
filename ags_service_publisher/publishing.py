@@ -225,7 +225,9 @@ def publish_env(
             errors = list()
             for proc, ags_instance in procs:
                 error_message = None
+                succeeded = True
                 if proc.exitcode != 0:
+                    succeeded = False
                     error_message = 'An error occurred in subprocess {} (pid {}, exitcode {}) ' \
                         'while publishing service {}/{} to AGS instance {}' \
                         .format(
@@ -244,6 +246,7 @@ def publish_env(
                     service_name=service_name,
                     service_type=service_type,
                     file_path=file_path,
+                    succeeded=succeeded,
                     error=error_message,
                     timestamp=datetime.datetime.now()
                 )

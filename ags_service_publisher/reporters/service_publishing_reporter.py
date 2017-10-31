@@ -21,6 +21,7 @@ class ServicePublishingReporter(BaseReporter):
         ('service_name', 'Service Name'),
         ('service_type', 'Service Type'),
         ('file_path', 'File Path'),
+        ('succeeded', 'Succeeded'),
         ('error', 'Error'),
         ('timestamp', 'Timestamp')
     ))
