@@ -137,11 +137,11 @@ def publish_env(
             else:
                 raise RuntimeError(message)
         for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
-            file_path = None
+            service_info = source_info[service_name]
+            file_path = service_info['source_file']
             if copy_source_files_from_staging_folder:
-                service_info = source_info[service_name]
                 if service_type == 'MapServer':
-                    file_path = source_mxd_path = service_info['source_file']
+                    source_mxd_path = file_path
                     if not source_mxd_path:
                         file_path = source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
                     if staging_dir:
@@ -172,7 +172,7 @@ def publish_env(
                             )
                         del proc
                 if service_type == 'GeocodeServer':
-                    file_path = source_locator_path = service_info['source_file']
+                    source_locator_path = file_path
                     if staging_dir:
                         staging_locator_path = service_info['staging_files'][0]
                         log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
