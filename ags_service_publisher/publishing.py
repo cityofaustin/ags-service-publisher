@@ -225,7 +225,6 @@ def publish_env(
             errors = list()
             for proc, ags_instance in procs:
                 error_message = None
-                succeeded = True
                 if proc.exitcode != 0:
                     succeeded = False
                     error_message = 'An error occurred in subprocess {} (pid {}, exitcode {}) ' \
@@ -239,6 +238,8 @@ def publish_env(
                             ags_instance
                         )
                     errors.append(error_message)
+                else:
+                    succeeded = True
                 yield dict(
                     env_name=env_name,
                     ags_instance=ags_instance,
