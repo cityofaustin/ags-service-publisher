@@ -21,7 +21,7 @@ log = setup_logger(__name__)
 
 def publish_config(
     config,
-    config_dir,
+    config_dir=default_config_dir,
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     included_services=asterisk_tuple, excluded_services=empty_tuple,
