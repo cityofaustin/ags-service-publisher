@@ -12,3 +12,4 @@ from service_analysis_reporter import ServiceAnalysisReporter
 from service_health_reporter import ServiceHealthReporter
 from service_layer_fields_reporter import ServiceLayerFieldsReporter
 from service_publishing_reporter import ServicePublishingReporter
+from service_inventory_reporter import ServiceInventoryReporter

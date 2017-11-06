@@ -26,6 +26,40 @@ from logging_io import setup_logger
 log = setup_logger(__name__)
 
 
+def generate_service_inventory(
+    included_services=asterisk_tuple, excluded_services=empty_tuple,
+    included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    config_dir=default_config_dir
+):
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info('Listing services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            service_folders = list_service_folders(server_url, token)
+            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                for service in list_services(server_url, token, service_folder):
+                    service_name = service['serviceName']
+                    service_type = service['type']
+                    if superfilter((service_name,), included_services, excluded_services):
+                        yield dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type
+                        )
+
+
 def analyze_services(
     included_envs=asterisk_tuple, excluded_envs=empty_tuple,
     included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
