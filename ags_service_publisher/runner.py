@@ -15,6 +15,7 @@ from reporters import (
     DatasetUsagesReporter,
     MxdDataSourcesReporter,
     ServiceAnalysisReporter,
+    ServiceComparisonReporter,
     ServiceHealthReporter,
     ServiceInventoryReporter,
     ServiceLayerFieldsReporter,
@@ -143,6 +144,30 @@ class Runner:
             included_service_folders, excluded_service_folders,
             included_instances, excluded_instances,
             included_envs, excluded_envs,
+            self.config_dir
+        )
+
+    def run_service_comparison_report(
+        self,
+        included_services=asterisk_tuple, excluded_services=empty_tuple,
+        included_service_folders=asterisk_tuple, excluded_service_folders=empty_tuple,
+        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+        case_insensitive=False,
+        output_filename=None,
+        output_format='csv'
+    ):
+        reporter = ServiceComparisonReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
+        )
+        return reporter.create_report(
+            included_services, excluded_services,
+            included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_envs, excluded_envs,
+            case_insensitive,
             self.config_dir
         )
 
