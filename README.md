@@ -360,6 +360,34 @@ Useful for determining possible performance or other issues with published servi
 **Note:** To generate Service Analysis reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
     for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
+#### Service Comparison Report
+
+This report type compares list of services across two AGS instances and reports which services are present on one but not the other.
+
+A warning will be given if more or less than two AGS instances are matched by the input filters.
+
+Services are grouped by environment and AGS instance names, then matched by service folder, service name and service type.
+
+Matches are made case-sensitively by default; set the optional keyword argument `case_insensitive` to `True` to override this
+
+
+##### Examples:
+
+- Generate a report in CSV format of the missing services between the `coagisd1` and `coagisd2` AGS instances specified within the `dev` environment defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_service_comparison_report(included_envs=['dev'], included_instances=['coagisd1', 'coagisd2'], output_filename='../ags-service-reports/Service_Comparison_Report_coagisd1_coagisd2.csv')"
+    ```
+
+- Same as above but match case-insensitively:
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_service_comparison_report(included_envs=['dev'], included_instances=['coagisd1', 'coagisd2'], case_insensitive=True, output_filename='../ags-service-reports/Service_Comparison_Report_coagisd1_coagisd2.csv')"
+    ```
+
+**Note:** To generate Service Comparison reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
+
 #### Service Layer Fields Report
 
 This report type queries ArcGIS Server for a list of MapServer services, finds the source MXD used to publish each service, and for each layer in the MXD, reports information about its data source, labels, symbology, fields and indexes.
