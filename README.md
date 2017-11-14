@@ -362,14 +362,13 @@ Useful for determining possible performance or other issues with published servi
 
 #### Service Comparison Report
 
-This report type compares list of services across two AGS instances and reports which services are present on one but not the other.
+This report type compares a list of services across two AGS instances and reports which services are present on one but not the other.
 
 A warning will be given if more or less than two AGS instances are matched by the input filters.
 
 Services are grouped by environment and AGS instance names, then matched by service folder, service name and service type.
 
 Matches are made case-sensitively by default; set the optional keyword argument `case_insensitive` to `True` to override this
-
 
 ##### Examples:
 
