@@ -584,7 +584,7 @@ def prompt_for_credentials(username=None, password=None, ags_instance=None):
         )
     if not password:
         password = getpass.getpass(
-            prompt='Password{}: '
+            prompt=str('Password{}: ')
             .format(
                 ' for ArcGIS Server instance {}'
                 .format(ags_instance) if ags_instance else ''
