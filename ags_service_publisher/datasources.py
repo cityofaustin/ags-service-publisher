@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import os
 import re
+import fnmatch
 
 from helpers import list_files_in_dir, deep_get
 from logging_io import setup_logger
@@ -184,15 +185,17 @@ def update_data_sources(mxd_path, data_source_mappings):
     for layer in list_layers_in_mxd(mxd):
         if hasattr(layer, 'workspacePath'):
             layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-            try:
-                new_workspace_path = data_source_mappings[layer.workspacePath]
-                log.info(
-                    'Updating workspace path for layer {}, dataset name: {}, '
-                    'current workspace path: {}, new workspace path: {}'
-                    .format(layer_name, layer.datasetName, layer.workspacePath, new_workspace_path)
-                )
-                layer.findAndReplaceWorkspacePath(layer.workspacePath, new_workspace_path, False)
-            except KeyError:
+            for key, value in data_source_mappings.iteritems():
+                if fnmatch.fnmatch(layer.workspacePath, key):
+                    new_workspace_path = value
+                    log.info(
+                        'Updating workspace path for layer {}, dataset name: {}, '
+                        'current workspace path: {}, new workspace path: {}'
+                        .format(layer_name, layer.datasetName, layer.workspacePath, new_workspace_path)
+                    )
+                    layer.findAndReplaceWorkspacePath(layer.workspacePath, new_workspace_path, False)
+                    break
+            else:
                 log.warn(
                     'No match for layer {}, dataset name: {}, workspace path: {}'
                     .format(layer_name, layer.datasetName, layer.workspacePath)

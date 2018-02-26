@@ -65,6 +65,7 @@ of your ArcGIS Server instances.
         - `data_source_mappings` (optional): Mappings of source data paths to destination data paths (e.g. development
             environment SDE connection files to test environment SDE connection files)
             - Supported by `MapServer` services, but not `GeocodeServer` services.
+            - [`fnmatch`][8]-style wildcards are supported in the keys for `data_source_mappings`, but note that in YAML you must enclose keys in single quotes if they contain a non-alphanumeric character.
         - `source_dir`: Directory containing the source files (MXDs, locator files, etc.) to publish.
         - `staging_dir` (optional): Directory containing staging files to copy into `source_dir` prior to mapping data
             sources and publishing.
@@ -100,8 +101,8 @@ environments:
       - coagist1
       - coagist2
     data_source_mappings:
-      \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE).sde: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde
-      \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE) external.sde: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
+      '*\gisDmDev (COUNCILDISTRICTMAP_SERVICE).sde': \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde
+      '*\gisDmDev (COUNCILDISTRICTMAP_SERVICE) external.sde': \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
     source_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
     staging_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
   prod:
@@ -109,8 +110,8 @@ environments:
       - coagisp1
       - coagisp2
     data_source_mappings:
-      \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
-      \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
+      '*\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
+      '*\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
     source_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\mxd-source\CouncilDistrictMap
     staging_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
 ```
