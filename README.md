@@ -5,13 +5,14 @@
 ## Overview
 
 The primary purpose of this tool is to automate the publishing of MXD files to Map Services on ArcGIS Server, using
-[YAML][1] configuration files to define the service folders, environments, services, service properties, data source
-mappings and more. Publishing geocoding services is also supported, with some limitations (e.g. no data source mapping).
+[YAML][1] configuration files to define the service folders, environments, services, 
+[service properties](#service-properties), data source mappings and more. Publishing geocoding services is also
+supported, with some limitations (e.g. no data source mapping).
 
 Additional features include [cleaning up](#clean-up-services) outdated services and
 [generating reports](#generate-reports) about existing services and the datasets they reference on ArcGIS Server.
 
-By default, configuration files are looked for in the `./config` subdirectory, and logs are written to `./logs`.
+By default, configuration files are looked for in the `./configs` subdirectory, reports are written to `./reports`, and logs are written to `./logs`. See the [Tips](#tips) section for details on overriding these default locations.
 
 You create one configuration file per service folder -- each service folder can contain many services.
 
@@ -37,7 +38,7 @@ of your ArcGIS Server instances.
 
 ## Configuration
 
-1. Create a folder named `config` in the local directory, or, alternatively, set the `AGS_SERVICE_PUBLISHER_CONFIG_DIR`
+1. Create a folder named `configs` in the local directory, or, alternatively, set the `AGS_SERVICE_PUBLISHER_CONFIG_DIR`
     environment variable to a directory of your choosing, as described in the [Tips](#tips) section.
 2. Create a file named [`userconfig.yml`](#userconfigyml) in the aforementioned configuration folder, and populate it
     with a top-level `environments` key containing one key for each of your environments, e.g. `dev`, `test`, and
@@ -69,62 +70,7 @@ of your ArcGIS Server instances.
             sources and publishing.
             - Can also be a list of multiple staging directories. Each service may only have one corresponding staging
                 file among all of the staging directories. Duplicates will result in a validation error.
-    5. (Optional) Set service properties.
-    
-        Service properties are settings that change how a service is defined in the [Service Draft (`.sddraft`)][6] file
-        prior to being published to ArcGIS Server. Examples of service properties include isolation level, number of
-        instances per container, cache directory, etc.
-        
-        To specify service properties, create key/value pairs for the properties to set and the values to set them to.
-        
-        **Tip:** Keys are matched to service property names case-insensitively, and any underscores are stripped so that
-        you can use `snake_case` to specify them; for example `instances_per_container` will match the
-        `InstancesPerContainer` property.
-     
-        Additionally, the following "special" service properties are recognized:
-        
-        - `service_type`: The type of service to publish. Defaults to `MapServer`. Currently the only supported
-            types are below:
-            - `MapServer`
-            - `GeocodeServer`
-        - `replace_service`: If set to `True`, specifies that any existing service is to be replaced. This can be
-            useful to enable if you find duplicate services with a timestamp suffix are being created on the server.
-        - `rebuild_locators`: Whether to rebuild locators before publishing them (only applies to `GeocodeServer`
-            services).
-        - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
-            [Generate Map Server Cache Tiling Scheme][7] geoprocessing tool. Used for specifying the tile scheme of
-            cached map services.
-        - `cache_tile_format`: Format for cached tile images, may be one of the following: `PNG`, `PNG8`, `PNG24`,
-            `PNG32`, `JPEG`, `MIXED`, `LERC`
-        - `compression_quality`: Compression quality for cached tile images, may be a number from `0` to `100`
-        - `keep_existing_cache`: Specifies that any existing cache is to be preserved, rather than overwritten.
-        - `feature_access`: A set of key/value pairs specifying the following feature service-related properties:
-            - `enabled`: Whether to enable feature access
-            - `capabilities`: A list of capabilities to enable on the feature service. Can be one or more of the
-            following:
-                - `query`
-                - `create`
-                - `update`
-                - `delete`
-                - `uploads`
-                - `editing`
-        
-        Service properties may be set at either at the service folder level or at the service level:
-        
-        - Service folder level:
-            - Create a top-level `default_service_properties` key and then specify the service properties as above.
-        - Service level:
-            - Within the top-level `services` key, for each service you want to set properties for, end the service
-                name with a colon (`:`) to denote that it is a mapping object, and then specify the service
-                properties as above.
-                                    
-                Ensure you indent the service properties by exactly 4 spaces relative to the hyphen (`-`) before the
-                service name.
-        
-        **Note:** If both service folder level and service level properties are specified, service level properties
-        override service folder level properties when there is a conflict.
-    
-    - See the [example configuration files](#example-configuration-files) section below for more details.
+    5. (Optional) Set [service properties](#service-properties).
 
 ### Example configuration files
 
@@ -146,6 +92,9 @@ environments:
       - coagisd1
       - coagisd2
     source_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
+    service_properties: # example of specifying environment-level properties
+      isolation: high
+      instances_per_container: 1
   test:
     ags_instances:
       - coagist1
@@ -470,6 +419,67 @@ Useful for determining the size and geometric complexity of the datasets being u
     **Note:** This looks for `.sde` files located within the directory specified by `sde_connections_dir` for each
     environment specified within [`userconfig.yml`](#userconfigyml).
 
+## Service properties
+
+Service properties are settings that change how a service is defined in the [Service Draft (`.sddraft`)][6] file
+prior to being published to ArcGIS Server. Examples of service properties include isolation level, number of
+instances per container, cache directory, etc.
+
+To specify service properties, create key/value pairs for the properties to set and the values to set them to.
+
+**Tip:** Keys are matched to service property names case-insensitively, and any underscores are stripped so that
+you can use `snake_case` to specify them; for example `instances_per_container` will match the
+`InstancesPerContainer` property.
+
+Additionally, the following "special" service properties are recognized:
+
+- `service_type`: The type of service to publish. Defaults to `MapServer`. Currently the only supported
+    types are below:
+    - `MapServer`
+    - `GeocodeServer`
+- `replace_service`: If set to `True`, specifies that any existing service is to be replaced. This can be
+    useful to enable if you find duplicate services with a timestamp suffix are being created on the server.
+- `rebuild_locators`: Whether to rebuild locators before publishing them (only applies to `GeocodeServer`
+    services).
+- `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
+    [Generate Map Server Cache Tiling Scheme][7] geoprocessing tool. Used for specifying the tile scheme of
+    cached map services.
+- `cache_tile_format`: Format for cached tile images, may be one of the following: `PNG`, `PNG8`, `PNG24`,
+    `PNG32`, `JPEG`, `MIXED`, `LERC`
+- `compression_quality`: Compression quality for cached tile images, may be a number from `0` to `100`
+- `keep_existing_cache`: Specifies that any existing cache is to be preserved, rather than overwritten.
+- `feature_access`: A set of key/value pairs specifying the following feature service-related properties:
+    - `enabled`: Whether to enable feature access
+    - `capabilities`: A list of capabilities to enable on the feature service. Can be one or more of the
+    following:
+        - `query`
+        - `create`
+        - `update`
+        - `delete`
+        - `uploads`
+        - `editing`
+
+Service properties may be set at multiple different "levels", allowing you to define properties applicable to all services, specific environments, or specific services.
+
+1. Service folder level:
+    - Create a top-level `default_service_properties` key and then specify the service properties as above.
+2. Environment level:
+    - Within the top-level `environments` key, for each environment you want to set properties for, create a
+    `service_properties` key and then specify the service properties as above.
+3. Service level:
+    - Within the top-level `services` key, for each service you want to set properties for, end the service
+        name with a colon (`:`) to denote that it is a mapping object, and then specify the service
+        properties as above.
+                            
+        Ensure you indent the service properties by exactly 4 spaces relative to the hyphen (`-`) before the
+        service name.
+
+**Note:** Service properties are applied in the order given above, e.g. service folder, then environment, then
+service-level. So when the same property is specified at a subsequent level, it overrides the value of the
+previous level.
+
+See the [example configuration files](#example-configuration-files) section for more details.
+
 ## Tips
 
 - You can use [`fnmatch`][8]-style wildcards in any of the strings in the list arguments to the runner functions, so,
@@ -480,7 +490,7 @@ Useful for determining the size and geometric complexity of the datasets being u
       Defaults to `False`.
     - `quiet`: if set to `True`, will suppress all output except for critical errors. Defaults to `False`.
     - `config_dir`: allows you to override which directory is used for your configuration files. Defaults to the
-      `./config` directory beneath the script's root directory. Alternatively, you can set the
+      `./configs` directory beneath the script's root directory. Alternatively, you can set the
       `AGS_SERVICE_PUBLISHER_CONFIG_DIR` environment variable to your desired directory.
     - `log_dir`: allows you to override which directory is used for storing log files. Defaults to the `./logs`
         directory beneath the script's root directory. Alternatively, you can set the `AGS_SERVICE_PUBLISHER_LOG_DIR`

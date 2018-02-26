@@ -111,6 +111,7 @@ def publish_env(
     services = superfilter(config['services'], included_services, excluded_services)
     service_folder = config.get('service_folder', os.path.basename(source_dir))
     default_service_properties = config.get('default_service_properties')
+    env_service_properties = env.get('service_properties', {})
     data_source_mappings = env.get('data_source_mappings', {})
     staging_dir = env.get('staging_dir')
 
@@ -128,7 +129,13 @@ def publish_env(
         .format(env_name, service_folder, ', '.join(ags_instances))
     )
     with open_queue() as log_queue:
-        source_info, errors = get_source_info(services, source_dir, staging_dir, default_service_properties)
+        source_info, errors = get_source_info(
+            services,
+            source_dir,
+            staging_dir,
+            default_service_properties,
+            env_service_properties
+        )
         if len(errors) > 0:
             message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
                 .format(env_name, service_folder, '\n'.join(errors))
@@ -136,7 +143,15 @@ def publish_env(
                 log.warn(message)
             else:
                 raise RuntimeError(message)
-        for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+        for (
+            service_name,
+            service_type,
+            service_properties
+        ) in normalize_services(
+            services,
+            default_service_properties,
+            env_service_properties
+        ):
             service_info = source_info[service_name]
             file_path = service_info['source_file']
             if copy_source_files_from_staging_folder:

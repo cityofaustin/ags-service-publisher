@@ -458,19 +458,25 @@ def test_services(
                         )
 
 
-def normalize_services(services, default_service_properties):
+def normalize_services(services, default_service_properties=None, env_service_properties=None):
     for service in services:
-        yield normalize_service(service, default_service_properties)
+        yield normalize_service(service, default_service_properties, env_service_properties)
 
 
-def normalize_service(service, default_service_properties):
+def normalize_service(service, default_service_properties=None, env_service_properties=None):
     is_mapping = isinstance(service, collections.Mapping)
     service_name = service.keys()[0] if is_mapping else service
     merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
+    if env_service_properties:
+        log.debug(
+            'Overriding default service properties with environment-level properties for service {}'
+            .format(service_name)
+        )
+        merged_service_properties.update(env_service_properties)
     if is_mapping:
         service_properties = service.items()[0][1]
         if service_properties:
-            log.debug('Overriding default service properties for service {}'.format(service_name))
+            log.debug('Overriding default service properties with service-level properties for service {}'.format(service_name))
             merged_service_properties.update(service_properties)
         else:
             log.warn(
@@ -483,7 +489,7 @@ def normalize_service(service, default_service_properties):
     return service_name, service_type, merged_service_properties
 
 
-def get_source_info(services, source_dir, staging_dir, default_service_properties):
+def get_source_info(services, source_dir, staging_dir, default_service_properties, env_service_properties):
     log.debug(
         'Getting source info for services {}, source directory: {}, staging directory {}'
         .format(services, source_dir, staging_dir)
@@ -492,7 +498,15 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
     source_info = {}
     errors = []
 
-    for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+    for (
+        service_name,
+        service_type,
+        service_properties
+    ) in normalize_services(
+        services,
+        default_service_properties,
+        env_service_properties
+    ):
         service_info = source_info[service_name] = {
             'source_file': None,
             'staging_files': []

@@ -1,6 +1,6 @@
 .idea
 *.pyc
-config
+configs
 logs
 reports
 *.egg-info

@@ -57,9 +57,16 @@ class MxdDataSourcesReporter(BaseReporter):
             for env_name in env_names:
                 log.debug('Finding MXD data sources for config {}, environment {}'.format(config_name, env_name))
                 env = config['environments'][env_name]
+                env_service_properties = env.get('service_properties', {})
                 staging_dir = env.get('staging_dir')
                 source_dir = env['source_dir']
-                source_info, errors = get_source_info(services, source_dir, staging_dir, default_service_properties)
+                source_info, errors = get_source_info(
+                    services,
+                    source_dir,
+                    staging_dir,
+                    default_service_properties,
+                    env_service_properties
+                )
                 if len(errors) > 0:
                     message = 'One or more errors occurred while validating the {} environment for config name {}:\n{}' \
                               .format(env_name, config_name, '\n'.join(errors))
@@ -67,7 +74,15 @@ class MxdDataSourcesReporter(BaseReporter):
                         log.warn(message)
                     else:
                         raise RuntimeError(message)
-                for service_name, service_type, service_properties in normalize_services(services, default_service_properties):
+                for (
+                    service_name,
+                    service_type,
+                    service_properties
+                ) in normalize_services(
+                    services,
+                    default_service_properties,
+                    env_service_properties
+                ):
                     if service_type == 'MapServer':
                         def generate_mxd_data_sources_report_rows(mxd_path, mxd_type):
                             for layer_properties in get_mxd_data_sources(mxd_path):
