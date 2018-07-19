@@ -48,8 +48,13 @@ of your ArcGIS Server instances.
     - `ags_instances`: contains a mapping of ArcGIS Server instance names, each having the following properties:
         - `url`: Base URL (scheme and hostname) of your ArcGIS Server instance
         - `ags_connection`: Path to an `.ags` connection file for each instance.
-        - `token` (optional): [ArcGIS Admin REST API token][5] (see the ["Generate tokens"](#generate-tokens) section
-            below for more details)
+        - `token` (optional): [ArcGIS Admin REST API token][5] (see the ["Generate tokens"](#generate-tokens) section  below for more details)
+        - `site_mode` (optional): If specified, determines what [site mode][11] to set the site to after publishing. If not specified, the site mode is not checked or changed. May be one of the following values:
+          - `editable`: Sets the site mode to editable before and after publishing.
+          - `read_only`: Sets the site mode to editable before publishing and read-only after publishing.
+          - `initial`: Sets the site mode to editable before publishing and restores it to the initial site mode after publishing.
+        
+          **Note:** Specifying a `site_mode` requires a valid `token` to be set for a user with Administrator privileges on the site.
     - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
         [import](#import-sde-connection-files) to each of the instances in that environment
 3. Create additional configuration files for each service folder you want to publish. Configuration files must have a
@@ -126,6 +131,7 @@ environments:
         url: http://coagisd1.austintexas.gov
         token: <automatically set by runner.generate_tokens>
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd1-pughl (admin).ags
+        site_mode: initial # Enable support for publishing to read-only mode site, restores site mode to its initial value after publishing
       coagisd2:
         url: http://coagisd2.austintexas.gov
         token: <automatically set by runner.generate_tokens>
@@ -137,6 +143,7 @@ environments:
         url: http://coagist1.austintexas.gov
         token: <automatically set by runner.generate_tokens>
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagist1-pughl (admin).ags
+        site_mode: editable # Enable support for publishing to read-only mode site, sets site mode to editable after publishing
       coagist2:
         url: http://coagist2.austintexas.gov
         token: <automatically set by runner.generate_tokens>
@@ -148,6 +155,7 @@ environments:
         url: http://coagisp1.austintexas.gov
         token: <automatically set by runner.generate_tokens>
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp1-pughl (admin).ags
+        site_mode: read_only # Enable support for publishing to read-only mode site, sets site mode to read-only after publishing
       coagisp2:
         url: http://coagisp2.austintexas.gov
         token: <automatically set by runner.generate_tokens>
@@ -515,3 +523,4 @@ See the [example configuration files](#example-configuration-files) section for 
 [8]: https://docs.python.org/2/library/fnmatch.html
 [9]: http://server.arcgis.com/en/server/latest/publish-services/windows/analyzing-your-gis-resource.htm
 [10]: http://server.arcgis.com/en/server/latest/publish-services/windows/00001-data-frame-does-not-have-layers.htm
+[11]: http://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-server-site-mode.htm

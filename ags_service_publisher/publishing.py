@@ -6,7 +6,7 @@ import os
 import tempfile
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service
+from ags_utils import list_services, delete_service, get_site_mode, set_site_mode
 from config_io import get_config, default_config_dir
 from datasources import update_data_sources, open_mxd
 from extrafilters import superfilter
@@ -128,32 +128,126 @@ def publish_env(
         'Publishing environment: {}, service folder: {}, ArcGIS Server instances: {}'
         .format(env_name, service_folder, ', '.join(ags_instances))
     )
-    with open_queue() as log_queue:
-        source_info, errors = get_source_info(
+
+    source_info, errors = get_source_info(
+        services,
+        source_dir,
+        staging_dir,
+        default_service_properties,
+        env_service_properties
+    )
+    if len(errors) > 0:
+        message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
+            .format(env_name, service_folder, '\n'.join(errors))
+        if warn_on_validation_errors:
+            log.warn(message)
+        else:
+            raise RuntimeError(message)
+
+    initial_site_modes = get_site_modes(ags_instances, env_name, user_config)
+    make_sites_editable(ags_instances, env_name, user_config, initial_site_modes)
+
+    try:
+        for result in publish_services(
             services,
+            user_config,
+            ags_instances,
+            env_name,
+            default_service_properties,
+            env_service_properties,
+            source_info,
             source_dir,
             staging_dir,
-            default_service_properties,
-            env_service_properties
-        )
-        if len(errors) > 0:
-            message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
-                .format(env_name, service_folder, '\n'.join(errors))
-            if warn_on_validation_errors:
-                log.warn(message)
-            else:
-                raise RuntimeError(message)
-        for (
-            service_name,
-            service_type,
-            service_properties
-        ) in normalize_services(
-            services,
-            default_service_properties,
-            env_service_properties
+            data_source_mappings,
+            service_folder,
+            copy_source_files_from_staging_folder,
+            service_prefix,
+            service_suffix,
+            warn_on_publishing_errors
         ):
-            service_info = source_info[service_name]
-            file_path = service_info['source_file']
+            yield result
+    finally:
+        restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
+
+    if cleanup_services:
+        for ags_instance in ags_instances:
+            cleanup_instance(ags_instance, env_name, config, user_config)
+
+
+def get_site_modes(ags_instances, env_name, user_config):
+    result = {}
+    for ags_instance in ags_instances:
+        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+        site_mode = ags_instance_props.get('site_mode')
+        if site_mode:
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            current_site_mode = get_site_mode(server_url, token)
+            result[ags_instance] = current_site_mode
+    return result
+
+
+def make_sites_editable(ags_instances, env_name, user_config, initial_site_modes):
+    for ags_instance in ags_instances:
+        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+        site_mode = ags_instance_props.get('site_mode')
+        if site_mode:
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            if initial_site_modes[ags_instance] != 'EDITABLE':
+                set_site_mode(server_url, token, 'EDITABLE')
+
+
+def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes):
+    for ags_instance in ags_instances:
+        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+        site_mode = ags_instance_props.get('site_mode')
+        if site_mode:
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            current_site_mode = get_site_mode(server_url, token)
+            if site_mode.upper() == 'INITIAL':
+                if current_site_mode != initial_site_modes[ags_instance]:
+                    set_site_mode(server_url, token, initial_site_modes[ags_instance])
+            elif site_mode.upper() == 'READ_ONLY':
+                if current_site_mode != 'READ_ONLY':
+                    set_site_mode(server_url, token, 'READ_ONLY')
+            elif site_mode.upper() == 'EDITABLE':
+                if current_site_mode != 'EDITABLE':
+                    set_site_mode(server_url, token, 'EDITABLE')
+            else:
+                log.warn('Unrecognized site mode {}'.format(site_mode))
+
+
+def publish_services(
+    services,
+    user_config,
+    ags_instances,
+    env_name,
+    default_service_properties,
+    env_service_properties,
+    source_info,
+    source_dir,
+    staging_dir,
+    data_source_mappings,
+    service_folder,
+    copy_source_files_from_staging_folder=True,
+    service_prefix='',
+    service_suffix='',
+    warn_on_publishing_errors=False
+):
+    for (
+        service_name,
+        service_type,
+        service_properties
+    ) in normalize_services(
+        services,
+        default_service_properties,
+        env_service_properties
+    ):
+        service_info = source_info[service_name]
+        file_path = service_info['source_file']
+        with open_queue() as log_queue:
             if copy_source_files_from_staging_folder:
                 if service_type == 'MapServer':
                     source_mxd_path = file_path
@@ -272,10 +366,6 @@ def publish_env(
                     .format(service_folder, service_name)
                 )
                 raise RuntimeError(errors)
-
-    if cleanup_services:
-        for ags_instance in ags_instances:
-            cleanup_instance(ags_instance, env_name, config, user_config)
 
 
 def publish_service(

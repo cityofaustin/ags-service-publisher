@@ -46,6 +46,50 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
         raise
 
 
+def get_site_mode(server_url, token):
+    log.debug('Getting site mode (URL: {})'.format(server_url))
+    url = urljoin(server_url, 'arcgis/admin/mode')
+    try:
+        r = requests.post(url, params={'f': 'json'}, data={'token': token})
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        site_mode = data.get('siteMode')
+        log.debug(
+            'Site mode info (URL {}): {}'
+            .format(r.url, json.dumps(data, indent=4))
+        )
+        return site_mode
+    except StandardError:
+        log.exception('An error occurred while getting site mode (URL: {})'.format(server_url))
+        raise
+
+
+def set_site_mode(server_url, token, site_mode):
+    log.debug('Setting site mode to {} (URL: {})'.format(site_mode, server_url))
+    url = urljoin(server_url, 'arcgis/admin/mode/update')
+    try:
+        r = requests.post(url, params={'f': 'json', 'siteMode': site_mode, 'runAsync': False}, data={'token': token})
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        status = data.get('status')
+        if status == 'error':
+            raise RuntimeError(data.get('messages'))
+        if status != 'success':
+            raise RuntimeError(data)
+        log.debug(
+            'Site mode update result (URL {}): {}'
+            .format(r.url, status)
+        )
+        return status
+    except StandardError:
+        log.exception('An error occurred while setting site mode to {} (URL: {})'.format(site_mode, server_url))
+        raise
+
+
 def list_service_folders(server_url, token):
     log.debug('Listing service folders (URL: {})'.format(server_url))
     url = urljoin(server_url, '/arcgis/admin/services')
