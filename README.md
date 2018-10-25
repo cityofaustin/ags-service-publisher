@@ -55,8 +55,11 @@ of your ArcGIS Server instances.
           - `initial`: Sets the site mode to editable before publishing and restores it to the initial site mode after publishing.
         
           **Note:** Specifying a `site_mode` requires a valid `token` to be set for a user with Administrator privileges on the site.
+        - `proxies` (optional): If specified, uses a proxy to connect to the ArcGIS Server instance. See the [Python Requests][12] documentation for details. Overrides any values set by the top-level `proxies` key.
     - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
         [import](#import-sde-connection-files) to each of the instances in that environment
+
+    You may also optionally create a top-level `proxies` key to specify any proxy servers you need to use to connect to ArcGIS Server. See the [Python Requests][12] documentation for details. May be overriden by the `proxies` key of individual ArcGIS Server instances`.
 3. Create additional configuration files for each service folder you want to publish. Configuration files must have a
     `.yml` extension.
     1. Create a top-level `service_folder` key with the name of the service folder as its value.
@@ -136,6 +139,8 @@ environments:
         url: http://coagisd2.austintexas.gov
         token: <automatically set by runner.generate_tokens>
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd2-pughl (admin).ags
+        proxies: # Instance-specific proxy settings
+          http: proxy-example.com:4567
     sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections
   test:
     ags_instances:
@@ -161,6 +166,8 @@ environments:
         token: <automatically set by runner.generate_tokens>
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisp2-pughl (admin).ags
     sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections
+proxies: # Top-level proxy settings
+  http: proxy-example.com:1234
 ```
 
 ## Example usage
@@ -524,3 +531,4 @@ See the [example configuration files](#example-configuration-files) section for 
 [9]: http://server.arcgis.com/en/server/latest/publish-services/windows/analyzing-your-gis-resource.htm
 [10]: http://server.arcgis.com/en/server/latest/publish-services/windows/00001-data-frame-does-not-have-layers.htm
 [11]: http://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-server-site-mode.htm
+[12]: http://docs.python-requests.org/en/master/user/advanced/#proxies

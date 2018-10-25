@@ -256,7 +256,8 @@ class Runner:
             log.info('Refreshing tokens for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
             for ags_instance in ags_instances:
                 ags_instance_props = env['ags_instances'][ags_instance]
-                new_token = generate_token(ags_instance_props['url'], username, password, expiration, ags_instance)
+                proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                new_token = generate_token(ags_instance_props['url'], username, password, expiration, ags_instance, proxies=proxies)
                 if new_token:
                     ags_instance_props['token'] = new_token
                     if not needs_save:
