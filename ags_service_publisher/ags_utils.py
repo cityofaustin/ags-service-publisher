@@ -4,10 +4,13 @@ import os
 import getpass
 import json
 import time
+from ssl import create_default_context
+from urllib3.poolmanager import PoolManager
 from xml.etree import ElementTree
 
 import requests
 from requests.compat import urljoin
+from requests.adapters import HTTPAdapter
 
 from datasources import parse_database_from_service_string
 from helpers import split_quoted_string, unquote_string
@@ -21,7 +24,10 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
     log.info('Generating token (URL: {}, user: {})'.format(server_url, username))
     url = urljoin(server_url, '/arcgis/admin/generateToken')
     try:
-        r = requests.post(
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(
             url,
             {
                 'username': username,
@@ -51,7 +57,10 @@ def get_site_mode(server_url, token, proxies=None):
     log.debug('Getting site mode (URL: {})'.format(server_url))
     url = urljoin(server_url, 'arcgis/admin/mode')
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -72,7 +81,10 @@ def set_site_mode(server_url, token, site_mode, proxies=None):
     log.debug('Setting site mode to {} (URL: {})'.format(site_mode, server_url))
     url = urljoin(server_url, 'arcgis/admin/mode/update')
     try:
-        r = requests.post(url, params={'f': 'json', 'siteMode': site_mode, 'runAsync': False}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json', 'siteMode': site_mode, 'runAsync': False}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -95,7 +107,10 @@ def list_service_folders(server_url, token, proxies=None):
     log.debug('Listing service folders (URL: {})'.format(server_url))
     url = urljoin(server_url, '/arcgis/admin/services')
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -126,7 +141,10 @@ def list_services(server_url, token, service_folder=None, proxies=None):
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -171,7 +189,10 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         )
     )
     try:
-        r = requests.post(url, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.text
@@ -209,7 +230,10 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -242,7 +266,10 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'. format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -279,7 +306,10 @@ def get_service_manifest(server_url, token, service_name, service_folder=None, s
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'. format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -316,7 +346,10 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -353,7 +386,10 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
             )
         )
         start_time = time.time()
-        r = requests.post(url, params=params, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params=params, data={'token': token}, proxies=proxies)
         end_time = time.time()
         response_time = end_time - start_time
         log.debug(
@@ -469,7 +505,10 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -503,7 +542,10 @@ def start_service(server_url, token, service_name, service_folder=None, service_
         )
     )
     try:
-        r = requests.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        s = requests.Session()
+        adapter = SSLContextAdapter()
+        s.mount(url, adapter)
+        r = s.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -664,3 +706,11 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
                 .format(sde_connection_file, ags_connection_file)
             )
             raise
+
+# Adapted from https://stackoverflow.com/a/50215614
+class SSLContextAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        context = create_default_context()
+        kwargs['ssl_context'] = context
+        context.load_default_certs() # this loads the OS defaults on Windows
+        self.poolmanager = PoolManager(*args, **kwargs)
