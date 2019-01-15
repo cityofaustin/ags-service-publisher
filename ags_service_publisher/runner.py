@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import logging
 import os
 
-from ags_utils import prompt_for_credentials, generate_token, import_sde_connection_file
+from ags_utils import prompt_for_credentials, generate_token, import_sde_connection_file, create_session
 from config_io import get_config, get_configs, set_config, default_config_dir
 from datasources import list_sde_connection_files_in_folder
 from extrafilters import superfilter
@@ -256,8 +256,10 @@ class Runner:
             log.info('Refreshing tokens for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
             for ags_instance in ags_instances:
                 ags_instance_props = env['ags_instances'][ags_instance]
+                server_url = ags_instance_props['url']
                 proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-                new_token = generate_token(ags_instance_props['url'], username, password, expiration, ags_instance, proxies=proxies)
+                session = create_session(server_url)
+                new_token = generate_token(server_url, username, password, expiration, ags_instance, proxies=proxies, session=session)
                 if new_token:
                     ags_instance_props['token'] = new_token
                     if not needs_save:
