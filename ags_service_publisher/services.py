@@ -47,10 +47,10 @@ def generate_service_inventory(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
@@ -85,10 +85,10 @@ def analyze_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     if (
@@ -103,7 +103,7 @@ def analyze_services(
                             service_type=service_type
                         )
                         try:
-                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
                             service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
                             file_type = {
                                 'MapServer': 'MXD',
@@ -227,10 +227,10 @@ def list_service_layer_fields(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     if (
@@ -246,7 +246,7 @@ def list_service_layer_fields(
                             ags_connection=ags_connection
                         )
                         try:
-                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
                             service_props['mxd_path'] = mxd_path = service_manifest['resources'][0]['onPremisePath']
                             log.info(
                                 'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
@@ -355,10 +355,10 @@ def find_service_dataset_usages(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     service_props = dict(
@@ -375,7 +375,6 @@ def find_service_dataset_usages(
                             service_name,
                             service_folder,
                             service_type,
-                            proxies=proxies,
                             session=session
                         ):
                             if (
@@ -414,15 +413,15 @@ def restart_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
                         if not include_running_services:
-                            status = get_service_status(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+                            status = get_service_status(server_url, token, service_name, service_folder, service_type, session=session)
                             configured_state = status.get('configuredState')
                             if configured_state == 'STARTED':
                                 log.debug(
@@ -430,8 +429,8 @@ def restart_services(
                                     .format(service_folder, service_name, service_type, configured_state, include_running_services)
                                 )
                                 continue
-                            restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, proxies=proxies, session=session)
-                        restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, proxies=proxies, session=session)
+                            restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
+                        restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
 
 
 def test_services(
@@ -455,14 +454,14 @@ def test_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url)
-            service_folders = list_service_folders(server_url, token, proxies=proxies, session=session)
+            session = create_session(server_url, proxies=proxies)
+            service_folders = list_service_folders(server_url, token, session=session)
             for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, proxies=proxies, session=session):
+                for service in list_services(server_url, token, service_folder, session=session):
                     service_name = service['serviceName']
                     service_type = service['type']
                     if superfilter((service_name,), included_services, excluded_services):
-                        test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors, proxies=proxies, session=session)
+                        test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors, session=session)
                         yield dict(
                             env_name=env_name,
                             ags_instance=ags_instance,

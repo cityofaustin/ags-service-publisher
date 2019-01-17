@@ -18,13 +18,15 @@ from logging_io import setup_logger
 
 log = setup_logger(__name__)
 
-def create_session(server_url):
+def create_session(server_url, proxies=None):
     session = requests.Session()
+    if proxies:
+        session.proxies = proxies
     adapter = SSLContextAdapter()
     session.mount(server_url, adapter)
     return session
 
-def generate_token(server_url, username=None, password=None, expiration=15, ags_instance=None, proxies=None, session=None):
+def generate_token(server_url, username=None, password=None, expiration=15, ags_instance=None, session=None):
     username, password = prompt_for_credentials(username, password, ags_instance)
     log.info('Generating token (URL: {}, user: {})'.format(server_url, username))
     url = urljoin(server_url, '/arcgis/admin/generateToken')
@@ -37,8 +39,7 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
                 'client': 'requestip',
                 'expiration': str(expiration),
                 'f': 'json'
-            },
-            proxies=proxies
+            }
         )
         log.debug('Request URL: {}'.format(r.url))
         assert r.status_code == 200
@@ -55,11 +56,11 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
         raise
 
 
-def get_site_mode(server_url, token, proxies=None, session=None):
+def get_site_mode(server_url, token, session=None):
     log.debug('Getting site mode (URL: {})'.format(server_url))
     url = urljoin(server_url, 'arcgis/admin/mode')
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -76,11 +77,11 @@ def get_site_mode(server_url, token, proxies=None, session=None):
         raise
 
 
-def set_site_mode(server_url, token, site_mode, proxies=None, session=None):
+def set_site_mode(server_url, token, site_mode, session=None):
     log.debug('Setting site mode to {} (URL: {})'.format(site_mode, server_url))
     url = urljoin(server_url, 'arcgis/admin/mode/update')
     try:
-        r = session.post(url, params={'f': 'json', 'siteMode': site_mode, 'runAsync': False}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json', 'siteMode': site_mode, 'runAsync': False}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -99,11 +100,11 @@ def set_site_mode(server_url, token, site_mode, proxies=None, session=None):
         raise
 
 
-def list_service_folders(server_url, token, proxies=None, session=None):
+def list_service_folders(server_url, token, session=None):
     log.debug('Listing service folders (URL: {})'.format(server_url))
     url = urljoin(server_url, '/arcgis/admin/services')
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -120,7 +121,7 @@ def list_service_folders(server_url, token, proxies=None, session=None):
         raise
 
 
-def list_services(server_url, token, service_folder=None, proxies=None, session=None):
+def list_services(server_url, token, service_folder=None, session=None):
     log.debug('Listing services (URL: {}, Folder: {})'.format(server_url, service_folder))
     url = urljoin(
         server_url,
@@ -134,7 +135,7 @@ def list_services(server_url, token, service_folder=None, proxies=None, session=
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -154,7 +155,7 @@ def list_services(server_url, token, service_folder=None, proxies=None, session=
         raise
 
 
-def list_service_workspaces(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def list_service_workspaces(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     if service_type == 'GeometryServer':
         log.warn(
             'Unsupported service type {} for service {} in folder {}'
@@ -179,7 +180,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         )
     )
     try:
-        r = session.post(url, data={'token': token}, proxies=proxies)
+        r = session.post(url, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.text
@@ -201,7 +202,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         raise
 
 
-def delete_service(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def delete_service(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.info('Deleting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -217,7 +218,7 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -235,7 +236,7 @@ def delete_service(server_url, token, service_name, service_folder=None, service
         raise
 
 
-def get_service_info(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def get_service_info(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.debug('Getting info for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -250,7 +251,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'. format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -271,7 +272,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
         raise
 
 
-def get_service_manifest(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def get_service_manifest(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.debug('Getting manifest for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -287,7 +288,7 @@ def get_service_manifest(server_url, token, service_name, service_folder=None, s
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'. format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -308,7 +309,7 @@ def get_service_manifest(server_url, token, service_name, service_folder=None, s
         raise
 
 
-def get_service_status(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def get_service_status(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.debug('Getting status of service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -324,7 +325,7 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -343,7 +344,7 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
         raise
 
 
-def test_service(server_url, token, service_name, service_folder=None, service_type='MapServer', warn_on_errors=False, proxies=None, session=None):
+def test_service(server_url, token, service_name, service_folder=None, service_type='MapServer', warn_on_errors=False, session=None):
     log.info('Testing {} service {} (URL {}, Folder: {})'.format(service_type, service_name, server_url, service_folder))
 
     def perform_service_health_check(operation, params, service_status):
@@ -361,7 +362,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
             )
         )
         start_time = time.time()
-        r = session.post(url, params=params, data={'token': token}, proxies=proxies)
+        r = session.post(url, params=params, data={'token': token})
         end_time = time.time()
         response_time = end_time - start_time
         log.debug(
@@ -399,7 +400,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
         }
 
     try:
-        service_status = get_service_status(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+        service_status = get_service_status(server_url, token, service_name, service_folder, service_type, session=session)
         configured_state = service_status.get('configuredState')
         realtime_state = service_status.get('realTimeState')
         if realtime_state != 'STARTED':
@@ -412,7 +413,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                 'realtime_state': realtime_state
             }
         if service_type == 'MapServer':
-            service_info = get_service_info(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+            service_info = get_service_info(server_url, token, service_name, service_folder, service_type, session=session)
             initial_extent = json.dumps(service_info.get('initialExtent'))
             return perform_service_health_check(
                 'identify',
@@ -429,7 +430,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                 service_status
             )
         elif service_type == 'GeocodeServer':
-            service_info = get_service_info(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+            service_info = get_service_info(server_url, token, service_name, service_folder, service_type, session=session)
             address_fields = service_info.get('addressFields')
             first_address_field_name = address_fields[0].get('name')
             return perform_service_health_check(
@@ -461,7 +462,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
         }
 
 
-def stop_service(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def stop_service(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.info('Stopping service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -477,7 +478,7 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -495,7 +496,7 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
         raise
 
 
-def start_service(server_url, token, service_name, service_folder=None, service_type='MapServer', proxies=None, session=None):
+def start_service(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
     log.info('Starting service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
     url = urljoin(
         server_url,
@@ -511,7 +512,7 @@ def start_service(server_url, token, service_name, service_folder=None, service_
         )
     )
     try:
-        r = session.post(url, params={'f': 'json'}, data={'token': token}, proxies=proxies)
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
         log.debug('Request URL: {}'.format(r.url))
         assert (r.status_code == 200)
         data = r.json()
@@ -538,7 +539,6 @@ def restart_service(
     delay=30,
     max_retries=3,
     test_after_restart=True,
-    proxies=None,
     session=None
 ):
     succeeded = False
@@ -552,24 +552,24 @@ def restart_service(
             'Restarting service {} (URL {}, Folder: {}, attempt #{} of {})'
             .format(service_name, server_url, service_folder, retry_count, max_retries)
          )
-        stop_service(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+        stop_service(server_url, token, service_name, service_folder, service_type, session=session)
         log.debug(
             'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
             .format(delay, service_name, server_url, service_folder)
         )
         time.sleep(delay)
-        start_service(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+        start_service(server_url, token, service_name, service_folder, service_type, session=session)
         log.debug(
             'Waiting {} seconds before checking status of service {} (URL {}, Folder: {})'
             .format(delay, service_name, server_url, service_folder)
         )
         time.sleep(delay)
-        service_status = get_service_status(server_url, token, service_name, service_folder, service_type, proxies=proxies, session=session)
+        service_status = get_service_status(server_url, token, service_name, service_folder, service_type, session=session)
         configured_state = service_status.get('configuredState')
         realtime_state = service_status.get('realTimeState')
         if realtime_state == 'STARTED':
             if test_after_restart:
-                test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors=True, proxies=proxies, session=session)
+                test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors=True, session=session)
                 configured_state = test_data.get('configured_state')
                 realtime_state = test_data.get('realtime_state')
                 error_message = test_data.get('error_message')
