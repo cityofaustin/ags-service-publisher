@@ -681,3 +681,9 @@ class SSLContextAdapter(HTTPAdapter):
         kwargs['ssl_context'] = context
         context.load_default_certs() # this loads the OS defaults on Windows
         self.poolmanager = PoolManager(*args, **kwargs)
+
+    def proxy_manager_for(self, *args, **kwargs):
+        context = create_default_context()
+        kwargs['ssl_context'] = context
+        context.load_default_certs() # this loads the OS defaults on Windows
+        return super(SSLContextAdapter, self).proxy_manager_for(*args, **kwargs)
