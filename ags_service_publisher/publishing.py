@@ -6,7 +6,7 @@ import os
 import tempfile
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service, get_site_mode, set_site_mode
+from ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
 from config_io import get_config, default_config_dir
 from datasources import update_data_sources, open_mxd
 from extrafilters import superfilter
@@ -183,7 +183,8 @@ def get_site_modes(ags_instances, env_name, user_config):
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            current_site_mode = get_site_mode(server_url, token, proxies=proxies)
+            session = create_session(server_url, proxies=proxies)
+            current_site_mode = get_site_mode(server_url, token, session=session)
             result[ags_instance] = current_site_mode
     return result
 
@@ -197,7 +198,8 @@ def make_sites_editable(ags_instances, env_name, user_config, initial_site_modes
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
             if initial_site_modes[ags_instance] != 'EDITABLE':
-                set_site_mode(server_url, token, 'EDITABLE', proxies=proxies)
+                session = create_session(server_url, proxies=proxies)
+                set_site_mode(server_url, token, 'EDITABLE', session=session)
 
 
 def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes):
@@ -208,16 +210,17 @@ def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            current_site_mode = get_site_mode(server_url, token, proxies=proxies)
+            session = create_session(server_url, proxies=proxies)
+            current_site_mode = get_site_mode(server_url, token, session=session)
             if site_mode.upper() == 'INITIAL':
                 if current_site_mode != initial_site_modes[ags_instance]:
-                    set_site_mode(server_url, token, initial_site_modes[ags_instance], proxies=proxies)
+                    set_site_mode(server_url, token, initial_site_modes[ags_instance], session=session)
             elif site_mode.upper() == 'READ_ONLY':
                 if current_site_mode != 'READ_ONLY':
-                    set_site_mode(server_url, token, 'READ_ONLY', proxies=proxies)
+                    set_site_mode(server_url, token, 'READ_ONLY', session=session)
             elif site_mode.upper() == 'EDITABLE':
                 if current_site_mode != 'EDITABLE':
-                    set_site_mode(server_url, token, 'EDITABLE', proxies=proxies)
+                    set_site_mode(server_url, token, 'EDITABLE', session=session)
             else:
                 log.warn('Unrecognized site mode {}'.format(site_mode))
 
@@ -516,7 +519,8 @@ def cleanup_instance(
     server_url = ags_instance_props['url']
     token = ags_instance_props['token']
     proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-    existing_services = list_services(server_url, token, service_folder, proxies=proxies)
+    session = create_session(server_url, proxies=proxies)
+    existing_services = list_services(server_url, token, service_folder, session=session)
     services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
     log.info(
         'Removing {} services: {}'
@@ -526,4 +530,4 @@ def cleanup_instance(
         )
     )
     for service in services_to_remove:
-        delete_service(server_url, token, service['serviceName'], service_folder, service['type'], proxies=proxies)
+        delete_service(server_url, token, service['serviceName'], service_folder, service['type'], session=session)
