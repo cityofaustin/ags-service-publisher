@@ -183,9 +183,9 @@ def get_site_modes(ags_instances, env_name, user_config):
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            current_site_mode = get_site_mode(server_url, token, session=session)
-            result[ags_instance] = current_site_mode
+            with create_session(server_url, proxies=proxies) as session:
+                current_site_mode = get_site_mode(server_url, token, session=session)
+                result[ags_instance] = current_site_mode
     return result
 
 
@@ -198,8 +198,8 @@ def make_sites_editable(ags_instances, env_name, user_config, initial_site_modes
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
             if initial_site_modes[ags_instance] != 'EDITABLE':
-                session = create_session(server_url, proxies=proxies)
-                set_site_mode(server_url, token, 'EDITABLE', session=session)
+                with create_session(server_url, proxies=proxies) as session:
+                    set_site_mode(server_url, token, 'EDITABLE', session=session)
 
 
 def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes):
@@ -210,19 +210,19 @@ def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            current_site_mode = get_site_mode(server_url, token, session=session)
-            if site_mode.upper() == 'INITIAL':
-                if current_site_mode != initial_site_modes[ags_instance]:
-                    set_site_mode(server_url, token, initial_site_modes[ags_instance], session=session)
-            elif site_mode.upper() == 'READ_ONLY':
-                if current_site_mode != 'READ_ONLY':
-                    set_site_mode(server_url, token, 'READ_ONLY', session=session)
-            elif site_mode.upper() == 'EDITABLE':
-                if current_site_mode != 'EDITABLE':
-                    set_site_mode(server_url, token, 'EDITABLE', session=session)
-            else:
-                log.warn('Unrecognized site mode {}'.format(site_mode))
+            with create_session(server_url, proxies=proxies) as session:
+                current_site_mode = get_site_mode(server_url, token, session=session)
+                if site_mode.upper() == 'INITIAL':
+                    if current_site_mode != initial_site_modes[ags_instance]:
+                        set_site_mode(server_url, token, initial_site_modes[ags_instance], session=session)
+                elif site_mode.upper() == 'READ_ONLY':
+                    if current_site_mode != 'READ_ONLY':
+                        set_site_mode(server_url, token, 'READ_ONLY', session=session)
+                elif site_mode.upper() == 'EDITABLE':
+                    if current_site_mode != 'EDITABLE':
+                        set_site_mode(server_url, token, 'EDITABLE', session=session)
+                else:
+                    log.warn('Unrecognized site mode {}'.format(site_mode))
 
 
 def publish_services(
@@ -519,15 +519,15 @@ def cleanup_instance(
     server_url = ags_instance_props['url']
     token = ags_instance_props['token']
     proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-    session = create_session(server_url, proxies=proxies)
-    existing_services = list_services(server_url, token, service_folder, session=session)
-    services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
-    log.info(
-        'Removing {} services: {}'
-        .format(
-            len(services_to_remove),
-            ', '.join((service['serviceName'] for service in services_to_remove))
+    with create_session(server_url, proxies=proxies) as session:
+        existing_services = list_services(server_url, token, service_folder, session=session)
+        services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
+        log.info(
+            'Removing {} services: {}'
+            .format(
+                len(services_to_remove),
+                ', '.join((service['serviceName'] for service in services_to_remove))
+            )
         )
-    )
-    for service in services_to_remove:
-        delete_service(server_url, token, service['serviceName'], service_folder, service['type'], session=session)
+        for service in services_to_remove:
+            delete_service(server_url, token, service['serviceName'], service_folder, service['type'], session=session)
