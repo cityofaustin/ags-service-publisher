@@ -47,20 +47,20 @@ def generate_service_inventory(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    if superfilter((service_name,), included_services, excluded_services):
-                        yield dict(
-                            env_name=env_name,
-                            ags_instance=ags_instance,
-                            service_folder=service_folder,
-                            service_name=service_name,
-                            service_type=service_type
-                        )
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        if superfilter((service_name,), included_services, excluded_services):
+                            yield dict(
+                                env_name=env_name,
+                                ags_instance=ags_instance,
+                                service_folder=service_folder,
+                                service_name=service_name,
+                                service_type=service_type
+                            )
 
 
 def analyze_services(
@@ -85,124 +85,124 @@ def analyze_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    if (
-                        service_type in ('MapServer', 'GeocodeServer') and
-                        superfilter((service_name,), included_services, excluded_services)
-                    ):
-                        service_props = dict(
-                            env_name=env_name,
-                            ags_instance=ags_instance,
-                            service_folder=service_folder,
-                            service_name=service_name,
-                            service_type=service_type
-                        )
-                        try:
-                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
-                            service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
-                            file_type = {
-                                'MapServer': 'MXD',
-                                'GeocodeServer': 'Locator'
-                            }[service_type]
-                            log.info(
-                                'Analyzing {} service {}/{} on ArcGIS Server instance {} (Connection File: {}, {} Path: {})'
-                                .format(service_type, service_folder, service_name, ags_instance, ags_connection, file_type, file_path)
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        if (
+                            service_type in ('MapServer', 'GeocodeServer') and
+                            superfilter((service_name,), included_services, excluded_services)
+                        ):
+                            service_props = dict(
+                                env_name=env_name,
+                                ags_instance=ags_instance,
+                                service_folder=service_folder,
+                                service_name=service_name,
+                                service_type=service_type
                             )
-                            if not arcpy.Exists(file_path):
-                                raise RuntimeError('{} {} does not exist!'.format(file_type, file_path))
                             try:
-                                tempdir = tempfile.mkdtemp()
-                                log.debug('Temporary directory created: {}'.format(tempdir))
-                                sddraft = os.path.join(tempdir, service_name + '.sddraft')
-                                log.debug('Creating SDDraft file: {}'.format(sddraft))
+                                service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
+                                service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
+                                file_type = {
+                                    'MapServer': 'MXD',
+                                    'GeocodeServer': 'Locator'
+                                }[service_type]
+                                log.info(
+                                    'Analyzing {} service {}/{} on ArcGIS Server instance {} (Connection File: {}, {} Path: {})'
+                                    .format(service_type, service_folder, service_name, ags_instance, ags_connection, file_type, file_path)
+                                )
+                                if not arcpy.Exists(file_path):
+                                    raise RuntimeError('{} {} does not exist!'.format(file_type, file_path))
+                                try:
+                                    tempdir = tempfile.mkdtemp()
+                                    log.debug('Temporary directory created: {}'.format(tempdir))
+                                    sddraft = os.path.join(tempdir, service_name + '.sddraft')
+                                    log.debug('Creating SDDraft file: {}'.format(sddraft))
 
-                                if service_type == 'MapServer':
-                                    mxd = open_mxd(file_path)
-                                    analysis = arcpy.mapping.CreateMapSDDraft(
-                                        mxd,
-                                        sddraft,
-                                        service_name,
-                                        'FROM_CONNECTION_FILE',
-                                        ags_connection,
-                                        False,
-                                        service_folder
-                                    )
-                                elif service_type == 'GeocodeServer':
-                                    locator_path = file_path
-                                    analysis = arcpy.CreateGeocodeSDDraft(
-                                        locator_path,
-                                        sddraft,
-                                        service_name,
-                                        'FROM_CONNECTION_FILE',
-                                        ags_connection,
-                                        False,
-                                        service_folder
-                                    )
-                                else:
-                                    raise RuntimeError('Unsupported service type {}!'.format(service_type))
+                                    if service_type == 'MapServer':
+                                        mxd = open_mxd(file_path)
+                                        analysis = arcpy.mapping.CreateMapSDDraft(
+                                            mxd,
+                                            sddraft,
+                                            service_name,
+                                            'FROM_CONNECTION_FILE',
+                                            ags_connection,
+                                            False,
+                                            service_folder
+                                        )
+                                    elif service_type == 'GeocodeServer':
+                                        locator_path = file_path
+                                        analysis = arcpy.CreateGeocodeSDDraft(
+                                            locator_path,
+                                            sddraft,
+                                            service_name,
+                                            'FROM_CONNECTION_FILE',
+                                            ags_connection,
+                                            False,
+                                            service_folder
+                                        )
+                                    else:
+                                        raise RuntimeError('Unsupported service type {}!'.format(service_type))
 
-                                for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
-                                    items = analysis[key]
-                                    severity = key[:-1].title()
-                                    if items:
-                                        log.info('----' + key.upper() + '---')
-                                        for ((message, code), layerlist) in items.iteritems():
-                                            code = '{:05d}'.format(code)
-                                            log_method('    {} (CODE {})'.format(message, code))
-                                            code = '="{}"'.format(code)
-                                            issue_props = dict(
-                                                severity=severity,
-                                                code=code,
-                                                message=message
-                                            )
-                                            if not layerlist:
-                                                yield dict(chain(
-                                                    service_props.iteritems(),
-                                                    issue_props.iteritems()
-                                                ))
-                                            else:
-                                                log_method('       applies to:')
-                                                for layer in layerlist:
-                                                    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-                                                    layer_props = dict(
-                                                        dataset_name=layer.datasetName,
-                                                        workspace_path=layer.workspacePath,
-                                                        layer_name=layer_name
-                                                    )
-                                                    log_method('           {}'.format(layer_name))
+                                    for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
+                                        items = analysis[key]
+                                        severity = key[:-1].title()
+                                        if items:
+                                            log.info('----' + key.upper() + '---')
+                                            for ((message, code), layerlist) in items.iteritems():
+                                                code = '{:05d}'.format(code)
+                                                log_method('    {} (CODE {})'.format(message, code))
+                                                code = '="{}"'.format(code)
+                                                issue_props = dict(
+                                                    severity=severity,
+                                                    code=code,
+                                                    message=message
+                                                )
+                                                if not layerlist:
                                                     yield dict(chain(
                                                         service_props.iteritems(),
-                                                        issue_props.iteritems(),
-                                                        layer_props.iteritems()
+                                                        issue_props.iteritems()
                                                     ))
-                                            log_method('')
+                                                else:
+                                                    log_method('       applies to:')
+                                                    for layer in layerlist:
+                                                        layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+                                                        layer_props = dict(
+                                                            dataset_name=layer.datasetName,
+                                                            workspace_path=layer.workspacePath,
+                                                            layer_name=layer_name
+                                                        )
+                                                        log_method('           {}'.format(layer_name))
+                                                        yield dict(chain(
+                                                            service_props.iteritems(),
+                                                            issue_props.iteritems(),
+                                                            layer_props.iteritems()
+                                                        ))
+                                                log_method('')
 
-                                if analysis['errors']:
-                                    error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
-                                        .format(service_folder, service_name, datetime.datetime.now())
-                                    log.error(error_message)
-                                    raise RuntimeError(error_message, analysis['errors'])
-                            finally:
-                                log.debug('Cleaning up temporary directory: {}'.format(tempdir))
-                                rmtree(tempdir, ignore_errors=True)
-                        except StandardError as e:
-                            log.exception(
-                                'An error occurred while analyzing {} service {}/{} on ArcGIS Server instance {}'
-                                .format(service_type, service_folder, service_name, ags_instance)
-                            )
-                            if not warn_on_errors:
-                                raise
-                            else:
-                                yield dict(
-                                    severity='Error',
-                                    message=e.message,
-                                    **service_props
+                                    if analysis['errors']:
+                                        error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
+                                            .format(service_folder, service_name, datetime.datetime.now())
+                                        log.error(error_message)
+                                        raise RuntimeError(error_message, analysis['errors'])
+                                finally:
+                                    log.debug('Cleaning up temporary directory: {}'.format(tempdir))
+                                    rmtree(tempdir, ignore_errors=True)
+                            except StandardError as e:
+                                log.exception(
+                                    'An error occurred while analyzing {} service {}/{} on ArcGIS Server instance {}'
+                                    .format(service_type, service_folder, service_name, ags_instance)
                                 )
+                                if not warn_on_errors:
+                                    raise
+                                else:
+                                    yield dict(
+                                        severity='Error',
+                                        message=e.message,
+                                        **service_props
+                                    )
 
 
 def list_service_layer_fields(
@@ -227,108 +227,108 @@ def list_service_layer_fields(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    if (
-                        service_type == 'MapServer' and
-                        superfilter((service_name,), included_services, excluded_services)
-                    ):
-                        service_props = dict(
-                            env_name=env_name,
-                            ags_instance=ags_instance,
-                            service_folder=service_folder,
-                            service_name=service_name,
-                            service_type=service_type,
-                            ags_connection=ags_connection
-                        )
-                        try:
-                            service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
-                            service_props['mxd_path'] = mxd_path = service_manifest['resources'][0]['onPremisePath']
-                            log.info(
-                                'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
-                                'on ArcGIS Server instance {ags_instance} '
-                                '(Connection File: {ags_connection}, MXD Path: {mxd_path})'
-                                .format(**service_props)
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        if (
+                            service_type == 'MapServer' and
+                            superfilter((service_name,), included_services, excluded_services)
+                        ):
+                            service_props = dict(
+                                env_name=env_name,
+                                ags_instance=ags_instance,
+                                service_folder=service_folder,
+                                service_name=service_name,
+                                service_type=service_type,
+                                ags_connection=ags_connection
                             )
-                            if not arcpy.Exists(mxd_path):
-                                raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
-                            mxd = open_mxd(mxd_path)
-                            for layer in list_layers_in_mxd(mxd):
-                                if not (
-                                    (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
-                                    (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
-                                ):
-                                    layer_name = getattr(layer, 'longName', layer.name)
-                                    try:
-                                        layer_props = get_layer_properties(layer)
-                                    except StandardError as e:
-                                        log.exception(
-                                            'An error occurred while retrieving properties for layer {} in MXD {}'
-                                            .format(layer_name, mxd_path)
-                                        )
-                                        if not warn_on_errors:
-                                            raise
-                                        else:
-                                            yield dict(
-                                                error='Error retrieving layer properties: {}'.format(e.message),
-                                                layer_name=layer_name,
-                                                **service_props
-                                            )
-                                            continue
-                                    try:
-                                        if layer_props['is_broken']:
-                                            raise RuntimeError(
-                                                'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
-                                                    layer_name,
-                                                    getattr(layer, 'dataSource', 'n/a')
-                                                )
-                                            )
-                                        for field_props in get_layer_fields(layer):
-                                            field_props['needs_index'] = not field_props['has_index'] and (
-                                                field_props['in_definition_query'] or
-                                                field_props['in_label_class_expression'] or
-                                                field_props['in_label_class_sql_query'] or
-                                                field_props['field_name'] == layer_props['symbology_field'] or
-                                                field_props['field_type'] == 'Geometry'
-                                            )
-
-                                            yield dict(chain(
-                                                service_props.iteritems(),
-                                                layer_props.iteritems(),
-                                                field_props.iteritems()
-                                            ))
-                                    except StandardError as e:
-                                        log.exception(
-                                            'An error occurred while listing fields for layer {} in MXD {}'
-                                            .format(layer_name, mxd_path)
-                                        )
-                                        if not warn_on_errors:
-                                            raise
-                                        else:
-                                            yield dict(chain(
-                                                service_props.iteritems(),
-                                                layer_props.iteritems()
-                                            ),
-                                                error='Error retrieving layer fields: {}'.format(e.message)
-                                            )
-                        except StandardError as e:
-                            log.exception(
-                                'An error occurred while listing layers and fields for '
-                                '{service_type} service {service_folder}/{service_name} on '
-                                'ArcGIS Server instance {ags_instance} (Connection File: {ags_connection})'
-                                .format(**service_props)
-                            )
-                            if not warn_on_errors:
-                                raise
-                            else:
-                                yield dict(
-                                    error=e.message,
-                                    **service_props
+                            try:
+                                service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
+                                service_props['mxd_path'] = mxd_path = service_manifest['resources'][0]['onPremisePath']
+                                log.info(
+                                    'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
+                                    'on ArcGIS Server instance {ags_instance} '
+                                    '(Connection File: {ags_connection}, MXD Path: {mxd_path})'
+                                    .format(**service_props)
                                 )
+                                if not arcpy.Exists(mxd_path):
+                                    raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
+                                mxd = open_mxd(mxd_path)
+                                for layer in list_layers_in_mxd(mxd):
+                                    if not (
+                                        (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
+                                        (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
+                                    ):
+                                        layer_name = getattr(layer, 'longName', layer.name)
+                                        try:
+                                            layer_props = get_layer_properties(layer)
+                                        except StandardError as e:
+                                            log.exception(
+                                                'An error occurred while retrieving properties for layer {} in MXD {}'
+                                                .format(layer_name, mxd_path)
+                                            )
+                                            if not warn_on_errors:
+                                                raise
+                                            else:
+                                                yield dict(
+                                                    error='Error retrieving layer properties: {}'.format(e.message),
+                                                    layer_name=layer_name,
+                                                    **service_props
+                                                )
+                                                continue
+                                        try:
+                                            if layer_props['is_broken']:
+                                                raise RuntimeError(
+                                                    'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
+                                                        layer_name,
+                                                        getattr(layer, 'dataSource', 'n/a')
+                                                    )
+                                                )
+                                            for field_props in get_layer_fields(layer):
+                                                field_props['needs_index'] = not field_props['has_index'] and (
+                                                    field_props['in_definition_query'] or
+                                                    field_props['in_label_class_expression'] or
+                                                    field_props['in_label_class_sql_query'] or
+                                                    field_props['field_name'] == layer_props['symbology_field'] or
+                                                    field_props['field_type'] == 'Geometry'
+                                                )
+
+                                                yield dict(chain(
+                                                    service_props.iteritems(),
+                                                    layer_props.iteritems(),
+                                                    field_props.iteritems()
+                                                ))
+                                        except StandardError as e:
+                                            log.exception(
+                                                'An error occurred while listing fields for layer {} in MXD {}'
+                                                .format(layer_name, mxd_path)
+                                            )
+                                            if not warn_on_errors:
+                                                raise
+                                            else:
+                                                yield dict(chain(
+                                                    service_props.iteritems(),
+                                                    layer_props.iteritems()
+                                                ),
+                                                    error='Error retrieving layer fields: {}'.format(e.message)
+                                                )
+                            except StandardError as e:
+                                log.exception(
+                                    'An error occurred while listing layers and fields for '
+                                    '{service_type} service {service_folder}/{service_name} on '
+                                    'ArcGIS Server instance {ags_instance} (Connection File: {ags_connection})'
+                                    .format(**service_props)
+                                )
+                                if not warn_on_errors:
+                                    raise
+                                else:
+                                    yield dict(
+                                        error=e.message,
+                                        **service_props
+                                    )
 
 
 def find_service_dataset_usages(
@@ -355,38 +355,38 @@ def find_service_dataset_usages(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    service_props = dict(
-                        env_name=env_name,
-                        ags_instance=ags_instance,
-                        service_folder=service_folder,
-                        service_name=service_name,
-                        service_type=service_type
-                    )
-                    if superfilter((service_name,), included_services, excluded_services):
-                        for dataset_props in list_service_workspaces(
-                            server_url,
-                            token,
-                            service_name,
-                            service_folder,
-                            service_type,
-                            session=session
-                        ):
-                            if (
-                                superfilter((dataset_props['dataset_name'],), included_datasets, excluded_datasets) and
-                                superfilter((dataset_props['user'],), included_users, excluded_users) and
-                                superfilter((dataset_props['database'],), included_databases, excluded_databases) and
-                                superfilter((dataset_props['version'],), included_versions, excluded_versions)
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        service_props = dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type
+                        )
+                        if superfilter((service_name,), included_services, excluded_services):
+                            for dataset_props in list_service_workspaces(
+                                server_url,
+                                token,
+                                service_name,
+                                service_folder,
+                                service_type,
+                                session=session
                             ):
-                                yield dict(chain(
-                                    service_props.iteritems(),
-                                    dataset_props.iteritems()
-                                ))
+                                if (
+                                    superfilter((dataset_props['dataset_name'],), included_datasets, excluded_datasets) and
+                                    superfilter((dataset_props['user'],), included_users, excluded_users) and
+                                    superfilter((dataset_props['database'],), included_databases, excluded_databases) and
+                                    superfilter((dataset_props['version'],), included_versions, excluded_versions)
+                                ):
+                                    yield dict(chain(
+                                        service_props.iteritems(),
+                                        dataset_props.iteritems()
+                                    ))
 
 
 def restart_services(
@@ -413,24 +413,24 @@ def restart_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    if superfilter((service_name,), included_services, excluded_services):
-                        if not include_running_services:
-                            status = get_service_status(server_url, token, service_name, service_folder, service_type, session=session)
-                            configured_state = status.get('configuredState')
-                            if configured_state == 'STARTED':
-                                log.debug(
-                                    'Skipping restart of service {}/{} ({}) because its configured state is {} and include_running_services is {}'
-                                    .format(service_folder, service_name, service_type, configured_state, include_running_services)
-                                )
-                                continue
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        if superfilter((service_name,), included_services, excluded_services):
+                            if not include_running_services:
+                                status = get_service_status(server_url, token, service_name, service_folder, service_type, session=session)
+                                configured_state = status.get('configuredState')
+                                if configured_state == 'STARTED':
+                                    log.debug(
+                                        'Skipping restart of service {}/{} ({}) because its configured state is {} and include_running_services is {}'
+                                        .format(service_folder, service_name, service_type, configured_state, include_running_services)
+                                    )
+                                    continue
+                                restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
                             restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
-                        restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
 
 
 def test_services(
@@ -454,22 +454,22 @@ def test_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            session = create_session(server_url, proxies=proxies)
-            service_folders = list_service_folders(server_url, token, session=session)
-            for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
-                for service in list_services(server_url, token, service_folder, session=session):
-                    service_name = service['serviceName']
-                    service_type = service['type']
-                    if superfilter((service_name,), included_services, excluded_services):
-                        test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors, session=session)
-                        yield dict(
-                            env_name=env_name,
-                            ags_instance=ags_instance,
-                            service_folder=service_folder,
-                            service_name=service_name,
-                            service_type=service_type,
-                            **test_data
-                        )
+            with create_session(server_url, proxies=proxies) as session:
+                service_folders = list_service_folders(server_url, token, session=session)
+                for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
+                    for service in list_services(server_url, token, service_folder, session=session):
+                        service_name = service['serviceName']
+                        service_type = service['type']
+                        if superfilter((service_name,), included_services, excluded_services):
+                            test_data = test_service(server_url, token, service_name, service_folder, service_type, warn_on_errors, session=session)
+                            yield dict(
+                                env_name=env_name,
+                                ags_instance=ags_instance,
+                                service_folder=service_folder,
+                                service_name=service_name,
+                                service_type=service_type,
+                                **test_data
+                            )
 
 
 def normalize_services(services, default_service_properties=None, env_service_properties=None):

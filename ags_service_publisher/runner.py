@@ -258,12 +258,12 @@ class Runner:
                 ags_instance_props = env['ags_instances'][ags_instance]
                 server_url = ags_instance_props['url']
                 proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-                session = create_session(server_url, proxies=proxies)
-                new_token = generate_token(server_url, username, password, expiration, ags_instance, session=session)
-                if new_token:
-                    ags_instance_props['token'] = new_token
-                    if not needs_save:
-                        needs_save = True
+                with create_session(server_url, proxies=proxies) as session:
+                    new_token = generate_token(server_url, username, password, expiration, ags_instance, session=session)
+                    if new_token:
+                        ags_instance_props['token'] = new_token
+                        if not needs_save:
+                            needs_save = True
         if needs_save:
             set_config(user_config, 'userconfig', self.config_dir)
 
