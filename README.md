@@ -1,6 +1,6 @@
 # ArcGIS Server Service Publisher
 
-**Note: This is a work in progress!**
+**Note:** See the [`ags-service-publisher-gui`](https://github.com/cityofaustin/ags-service-publisher-gui) repository if you are looking for a simple, user-friendly GUI application for working with AGS services! This repository contains the library code that the GUI application depends on.
 
 ## Overview
 
