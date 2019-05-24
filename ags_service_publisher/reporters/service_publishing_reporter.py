@@ -40,7 +40,8 @@ class ServicePublishingReporter(BaseReporter):
         service_suffix='',
         warn_on_validation_errors=False,
         warn_on_publishing_errors=False,
-        config_dir=default_config_dir
+        config_dir=default_config_dir,
+        create_backups=True
     ):
         for config_name, config in get_configs(included_configs, excluded_configs, config_dir).iteritems():
             for result in publish_config_name(
@@ -54,6 +55,7 @@ class ServicePublishingReporter(BaseReporter):
                 service_prefix,
                 service_suffix,
                 warn_on_publishing_errors,
-                warn_on_validation_errors
+                warn_on_validation_errors,
+                create_backups
             ):
                 yield result

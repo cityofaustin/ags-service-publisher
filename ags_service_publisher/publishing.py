@@ -30,7 +30,8 @@ def publish_config(
     service_prefix='',
     service_suffix='',
     warn_on_publishing_errors=False,
-    warn_on_validation_errors=False
+    warn_on_validation_errors=False,
+    create_backups=True
 ):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
@@ -53,7 +54,8 @@ def publish_config(
                 service_prefix,
                 service_suffix,
                 warn_on_publishing_errors,
-                warn_on_validation_errors
+                warn_on_validation_errors,
+                create_backups
             ):
                 yield result
         else:
@@ -71,7 +73,8 @@ def publish_config_name(
     service_prefix='',
     service_suffix='',
     warn_on_publishing_errors=False,
-    warn_on_validation_errors=False
+    warn_on_validation_errors=False,
+    create_backups=True
 ):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
@@ -86,7 +89,8 @@ def publish_config_name(
         service_prefix,
         service_suffix,
         warn_on_publishing_errors,
-        warn_on_validation_errors
+        warn_on_validation_errors,
+        create_backups
     ):
         result['config_name'] = config_name
         yield result
@@ -103,7 +107,8 @@ def publish_env(
     service_prefix='',
     service_suffix='',
     warn_on_publishing_errors=False,
-    warn_on_validation_errors=False
+    warn_on_validation_errors=False,
+    create_backups=True
 ):
     env = config['environments'][env_name]
     source_dir = env['source_dir']
@@ -163,7 +168,8 @@ def publish_env(
             copy_source_files_from_staging_folder,
             service_prefix,
             service_suffix,
-            warn_on_publishing_errors
+            warn_on_publishing_errors,
+            create_backups
         ):
             yield result
     finally:
@@ -240,7 +246,8 @@ def publish_services(
     copy_source_files_from_staging_folder=True,
     service_prefix='',
     service_suffix='',
-    warn_on_publishing_errors=False
+    warn_on_publishing_errors=False,
+    create_backups=True
 ):
     for (
         service_name,
@@ -254,6 +261,29 @@ def publish_services(
         service_info = source_info[service_name]
         file_path = service_info['source_file']
         with open_queue() as log_queue:
+            if create_backups:
+                backup_dir = os.path.join(source_dir, 'Backup')
+                if not os.path.isdir(backup_dir):
+                    log.warn('Creating backup directory {}'.format(backup_dir))
+                    os.makedirs(backup_dir)
+                if service_type == 'MapServer':
+                    source_mxd_path = file_path
+                    if not source_mxd_path:
+                        file_path = source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
+                    backup_file_name = '{}_{:%Y%m%d_%H%M%S}.mxd'.format(service_name, datetime.datetime.now())
+                    backup_file_path = os.path.join(backup_dir, backup_file_name)
+                    log.info('Backing up source MXD {} to {}'.format(source_mxd_path, backup_file_path))
+                    copyfile(source_mxd_path, backup_file_path)
+                if service_type == 'GeocodeServer':
+                    source_locator_path = file_path
+                    backup_file_name = '{}_{:%Y%m%d_%H%M%S}.loc'.format(service_name, datetime.datetime.now())
+                    backup_file_path = os.path.join(backup_dir, backup_file_name)
+                    log.info('Backing up source locator file {} to {}'.format(source_locator_path, backup_file_path))
+                    copyfile(source_locator_path, backup_file_path)
+                    copyfile(source_locator_path + '.xml', backup_file_path + '.xml')
+                    source_locator_lox_path = os.path.splitext(source_locator_path)[0] + '.lox'
+                    if os.path.isfile(source_locator_lox_path):
+                        copyfile(source_locator_lox_path, os.path.splitext(backup_file_path)[0] + '.lox')
             if copy_source_files_from_staging_folder:
                 if service_type == 'MapServer':
                     source_mxd_path = file_path

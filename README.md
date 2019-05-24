@@ -202,6 +202,8 @@ proxies: # Top-level proxy settings
     
     - **Note:** Similarly, a prefix can also be specified using `service_prefix`.
 
+**Note:** By default, backups are created when publishing MapServer and GeocodeServer services. A `Backups` subdirectory is created in the same directory as the source file(s), and a copy of the services to be published are placed there with a timestamp appended. To disable creating backups, pass the `create_backups=False` argument.
+
 ### Clean up services
 
 - Clean up (remove) any existing services in the `CouncilDistrictMap` service folder that have not been defined in the
