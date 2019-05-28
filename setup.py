@@ -9,7 +9,7 @@ setup(
         'PyYAML'
     ],
     url='https://github.com/cityofaustin/ags-service-publisher',
-    license='',
+    license='CC0',
     author='Logan Pugh',
     author_email='logan.pugh@austintexas.gov',
     description='Tools for publishing and managing services on ArcGIS Server'
