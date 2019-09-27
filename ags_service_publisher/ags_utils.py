@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import os
 import getpass
 import json
@@ -12,11 +10,12 @@ import requests
 from requests.compat import urljoin
 from requests.adapters import HTTPAdapter
 
-from datasources import parse_database_from_service_string
-from helpers import split_quoted_string, unquote_string
-from logging_io import setup_logger
+from .datasources import parse_database_from_service_string
+from .helpers import split_quoted_string, unquote_string
+from .logging_io import setup_logger
 
 log = setup_logger(__name__)
+
 
 def create_session(server_url, proxies=None):
     session = requests.Session()
@@ -25,6 +24,7 @@ def create_session(server_url, proxies=None):
     adapter = SSLContextAdapter()
     session.mount(server_url, adapter)
     return session
+
 
 def generate_token(server_url, username=None, password=None, expiration=15, ags_instance=None, session=None):
     username, password = prompt_for_credentials(username, password, ags_instance)
@@ -51,7 +51,7 @@ def generate_token(server_url, username=None, password=None, expiration=15, ags_
             .format(server_url, username, data['expires'])
         )
         return data['token']
-    except StandardError:
+    except Exception:
         log.exception('An error occurred while generating token (URL: {}, user: {})'.format(server_url, username))
         raise
 
@@ -72,7 +72,7 @@ def get_site_mode(server_url, token, session=None):
             .format(r.url, json.dumps(data, indent=4))
         )
         return site_mode
-    except StandardError:
+    except Exception:
         log.exception('An error occurred while getting site mode (URL: {})'.format(server_url))
         raise
 
@@ -95,7 +95,7 @@ def set_site_mode(server_url, token, site_mode, session=None):
             .format(r.url, status)
         )
         return status
-    except StandardError:
+    except Exception:
         log.exception('An error occurred while setting site mode to {} (URL: {})'.format(site_mode, server_url))
         raise
 
@@ -116,7 +116,7 @@ def list_service_folders(server_url, token, session=None):
             .format(r.url, json.dumps(service_folders, indent=4))
         )
         return service_folders
-    except StandardError:
+    except Exception:
         log.exception('An error occurred while listing service folders (URL: {})'.format(server_url))
         raise
 
@@ -147,7 +147,7 @@ def list_services(server_url, token, service_folder=None, session=None):
         )
         services = data['services']
         return services
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while listing services (URL: {}, Folder: {})'
             .format(server_url, service_folder)
@@ -194,7 +194,7 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
                 version=conn_props.get('VERSION', 'n/a'),
                 **dataset_props
             )
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while listing workspaces for service {}/{}'
             .format(service_folder, service_name)
@@ -228,7 +228,7 @@ def delete_service(server_url, token, service_name, service_folder=None, service
             'Service {} successfully deleted (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while deleting service {}/{}'
             .format(service_folder, service_name)
@@ -264,7 +264,7 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while getting info for service {}/{}'
             .format(service_folder, service_name)
@@ -301,7 +301,7 @@ def get_service_manifest(server_url, token, service_name, service_folder=None, s
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while getting manifest for service {}/{}'
             .format(service_folder, service_name)
@@ -336,7 +336,7 @@ def get_service_status(server_url, token, service_name, service_folder=None, ser
             .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
         )
         return data
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while getting the status of service {}/{}'
             .format(service_folder, service_name)
@@ -450,7 +450,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                 'configured_state': configured_state,
                 'realtime_state': realtime_state
             }
-    except StandardError as e:
+    except Exception as e:
         log.exception(
             'An error occurred while testing {} service {}/{}'
             .format(service_type, service_folder, service_name)
@@ -488,7 +488,7 @@ def stop_service(server_url, token, service_name, service_folder=None, service_t
             'Service {} successfully stopped (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while stopping service {}/{}'
             .format(service_folder, service_name)
@@ -522,7 +522,7 @@ def start_service(server_url, token, service_name, service_folder=None, service_
             'Service {} successfully started (URL {}, Folder: {})'
             .format(service_name, server_url, service_folder)
         )
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while starting service {}/{}'
             .format(service_folder, service_name)
@@ -551,7 +551,7 @@ def restart_service(
         log.info(
             'Restarting service {} (URL {}, Folder: {}, attempt #{} of {})'
             .format(service_name, server_url, service_folder, retry_count, max_retries)
-         )
+        )
         stop_service(server_url, token, service_name, service_folder, service_type, session=session)
         log.debug(
             'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
@@ -630,7 +630,7 @@ def parse_connection_string(conn_string):
 
 def prompt_for_credentials(username=None, password=None, ags_instance=None):
     if not username:
-        username = raw_input(
+        username = input(
             'User name{}: '
             .format(
                 ' for ArcGIS Server instance {}'
@@ -664,7 +664,7 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
             sde_connection_file,
             sde_connection_file
         )
-    except StandardError as e:
+    except Exception as e:
         if e.message == 'Client database entry is already registered.':
             log.warn(e.message)
         else:
@@ -673,6 +673,7 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
                 .format(sde_connection_file, ags_connection_file)
             )
             raise
+
 
 # Adapted from https://stackoverflow.com/a/50215614
 class SSLContextAdapter(HTTPAdapter):

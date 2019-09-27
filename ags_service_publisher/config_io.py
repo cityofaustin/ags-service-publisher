@@ -1,13 +1,11 @@
-from __future__ import unicode_literals
-
 import os
 from collections import OrderedDict
 
 import yaml  # PyYAML: http://pyyaml.org/
 
-from extrafilters import superfilter
-from helpers import asterisk_tuple, empty_tuple
-from logging_io import setup_logger
+from .extrafilters import superfilter
+from .helpers import asterisk_tuple, empty_tuple
+from .logging_io import setup_logger
 
 log = setup_logger(__name__)
 
@@ -88,4 +86,3 @@ def write_config_to_file(config, file_path):
     log.debug('Writing config to file: {}'.format(file_path))
     with open(file_path, 'wb') as f:
         ordered_dump(config, f, default_flow_style=False, width=float('inf'))
-

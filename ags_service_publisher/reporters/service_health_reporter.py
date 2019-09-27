@@ -1,12 +1,10 @@
-from __future__ import unicode_literals
-
 import collections
 
 from ..config_io import default_config_dir
 from ..helpers import asterisk_tuple, empty_tuple
 from ..logging_io import setup_logger
-from ..reporters.base_reporter import BaseReporter
 from ..services import test_services
+from .base_reporter import BaseReporter
 
 log = setup_logger(__name__)
 

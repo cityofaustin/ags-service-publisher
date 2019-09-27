@@ -1,16 +1,14 @@
-from __future__ import unicode_literals
-
 import logging
 import os
 
-from ags_utils import prompt_for_credentials, generate_token, import_sde_connection_file, create_session
-from config_io import get_config, get_configs, set_config, default_config_dir
-from datasources import list_sde_connection_files_in_folder
-from extrafilters import superfilter
-from helpers import asterisk_tuple, empty_tuple
-from logging_io import setup_logger, setup_console_log_handler, setup_file_log_handler, default_log_dir
-from publishing import cleanup_config, publish_config
-from reporters import (
+from .ags_utils import prompt_for_credentials, generate_token, import_sde_connection_file, create_session
+from .config_io import get_config, get_configs, set_config, default_config_dir
+from .datasources import list_sde_connection_files_in_folder
+from .extrafilters import superfilter
+from .helpers import asterisk_tuple, empty_tuple
+from .logging_io import setup_logger, setup_console_log_handler, setup_file_log_handler, default_log_dir
+from .publishing import cleanup_config, publish_config
+from .reporters import (
     DatasetGeometryStatisticsReporter,
     DatasetUsagesReporter,
     MxdDataSourcesReporter,
@@ -19,10 +17,10 @@ from reporters import (
     ServiceHealthReporter,
     ServiceInventoryReporter,
     ServiceLayerFieldsReporter,
-    ServicePublishingReporter,
-    default_report_dir
+    ServicePublishingReporter
 )
-from services import restart_services, test_services
+from .reporters.base_reporter import default_report_dir
+from .services import restart_services, test_services
 
 log = setup_logger(__name__)
 root_logger = setup_logger()
@@ -91,7 +89,7 @@ class Runner:
                     ):
                         result['config_name'] = config_name
                         yield result
-                except StandardError:
+                except Exception:
                     log.exception('An error occurred while publishing config \'{}\''.format(config_name))
                     log.error('See the log file at {}'.format(log_file_handler.baseFilename))
                     raise
@@ -119,7 +117,7 @@ class Runner:
                     included_instances, excluded_instances,
                     self.config_dir
                 )
-            except StandardError:
+            except Exception:
                 log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
                 log.error('See the log file at {}'.format(log_file_handler.baseFilename))
                 raise

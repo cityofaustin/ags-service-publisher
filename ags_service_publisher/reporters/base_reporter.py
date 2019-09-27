@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import abc
 import collections
 import csv
@@ -8,9 +6,13 @@ import os
 
 from ..helpers import sentence_case_to_snake_case, file_or_stdout
 from ..logging_io import setup_logger
-from ..reporters import default_report_dir
 
 log = setup_logger(__name__)
+
+default_report_dir = os.getenv(
+    'AGS_SERVICE_PUBLISHER_REPORT_DIR',
+    os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports'))
+)
 
 
 class BaseReporter(object):

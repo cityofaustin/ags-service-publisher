@@ -1,11 +1,9 @@
-from __future__ import unicode_literals
-
 import os
 import re
 import fnmatch
 
-from helpers import list_files_in_dir, deep_get
-from logging_io import setup_logger
+from .helpers import list_files_in_dir, deep_get
+from .logging_io import setup_logger
 
 log = setup_logger(__name__)
 

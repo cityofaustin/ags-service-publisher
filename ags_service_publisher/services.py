@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import collections
 import datetime
 import os
@@ -8,7 +6,7 @@ from copy import deepcopy
 from itertools import chain
 from shutil import rmtree
 
-from ags_utils import (
+from .ags_utils import (
     create_session,
     get_service_manifest,
     get_service_status,
@@ -18,11 +16,11 @@ from ags_utils import (
     restart_service,
     test_service
 )
-from config_io import get_config, default_config_dir
-from datasources import open_mxd, list_layers_in_mxd, get_layer_fields, get_layer_properties
-from extrafilters import superfilter
-from helpers import asterisk_tuple, empty_tuple
-from logging_io import setup_logger
+from .config_io import get_config, default_config_dir
+from .datasources import open_mxd, list_layers_in_mxd, get_layer_fields, get_layer_properties
+from .extrafilters import superfilter
+from .helpers import asterisk_tuple, empty_tuple
+from .logging_io import setup_logger
 
 log = setup_logger(__name__)
 
@@ -190,7 +188,7 @@ def analyze_services(
                                 finally:
                                     log.debug('Cleaning up temporary directory: {}'.format(tempdir))
                                     rmtree(tempdir, ignore_errors=True)
-                            except StandardError as e:
+                            except Exception as e:
                                 log.exception(
                                     'An error occurred while analyzing {} service {}/{} on ArcGIS Server instance {}'
                                     .format(service_type, service_folder, service_name, ags_instance)
@@ -265,7 +263,7 @@ def list_service_layer_fields(
                                         layer_name = getattr(layer, 'longName', layer.name)
                                         try:
                                             layer_props = get_layer_properties(layer)
-                                        except StandardError as e:
+                                        except Exception as e:
                                             log.exception(
                                                 'An error occurred while retrieving properties for layer {} in MXD {}'
                                                 .format(layer_name, mxd_path)
@@ -301,7 +299,7 @@ def list_service_layer_fields(
                                                     layer_props.iteritems(),
                                                     field_props.iteritems()
                                                 ))
-                                        except StandardError as e:
+                                        except Exception as e:
                                             log.exception(
                                                 'An error occurred while listing fields for layer {} in MXD {}'
                                                 .format(layer_name, mxd_path)
@@ -315,7 +313,7 @@ def list_service_layer_fields(
                                                 ),
                                                     error='Error retrieving layer fields: {}'.format(e.message)
                                                 )
-                            except StandardError as e:
+                            except Exception as e:
                                 log.exception(
                                     'An error occurred while listing layers and fields for '
                                     '{service_type} service {service_folder}/{service_name} on '
@@ -528,7 +526,7 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
         if staging_dir:
             staging_files = service_info['staging_files']
             # If multiple staging folders are provided, look for the source item in each staging folder
-            staging_dirs = (staging_dir,) if isinstance(staging_dir, basestring) else staging_dir
+            staging_dirs = (staging_dir,) if isinstance(staging_dir, str) else staging_dir
             for _staging_dir in staging_dirs:
                 log.debug('Finding staging items in directory: {}'.format(_staging_dir))
                 if service_type == 'MapServer':

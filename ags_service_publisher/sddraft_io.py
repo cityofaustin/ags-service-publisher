@@ -1,9 +1,7 @@
-from __future__ import unicode_literals
-
 from xml.etree import ElementTree
 
-from helpers import snake_case_to_pascal_case
-from logging_io import setup_logger
+from .helpers import snake_case_to_pascal_case
+from .logging_io import setup_logger
 
 log = setup_logger(__name__)
 

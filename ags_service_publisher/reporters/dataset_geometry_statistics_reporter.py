@@ -1,12 +1,10 @@
-from __future__ import unicode_literals
-
 import collections
 from itertools import chain
 
 from ..datasources import get_geometry_statistics
 from ..logging_io import setup_logger
-from ..reporters.base_reporter import BaseReporter
 from ..services import find_service_dataset_usages
+from .base_reporter import BaseReporter
 
 log = setup_logger(__name__)
 
@@ -47,7 +45,7 @@ class DatasetGeometryStatisticsReporter(BaseReporter):
                 try:
                     geometry_stats = get_geometry_statistics(dataset_props['dataset_path'])
                     cache[key] = geometry_stats
-                except StandardError as e:
+                except Exception as e:
                     log.exception(
                         'An error occurred while getting the statistics for dataset: {dataset_name}, '
                         'AGS instance: {ags_instance}, '

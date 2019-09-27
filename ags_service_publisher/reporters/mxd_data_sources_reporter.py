@@ -1,14 +1,12 @@
-from __future__ import unicode_literals
-
 import collections
 
-from ..reporters.base_reporter import BaseReporter
 from ..config_io import default_config_dir, get_configs
 from ..datasources import get_mxd_data_sources
 from ..extrafilters import superfilter
 from ..helpers import asterisk_tuple, empty_tuple
 from ..logging_io import setup_logger
 from ..services import get_source_info, normalize_services
+from .base_reporter import BaseReporter
 
 log = setup_logger(__name__)
 

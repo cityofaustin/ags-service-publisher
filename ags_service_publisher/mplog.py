@@ -1,7 +1,4 @@
 # Adapted from https://gist.github.com/schlamar/7003737
-
-from __future__ import unicode_literals
-
 import contextlib
 import multiprocessing
 import logging
@@ -23,7 +20,7 @@ def daemon(log_queue):
             raise
         except EOFError:
             break
-        except:
+        except Exception:
             logging.exception('Error in log handler.')
 
 

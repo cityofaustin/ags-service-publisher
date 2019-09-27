@@ -1,20 +1,18 @@
-from __future__ import unicode_literals
-
 import datetime
 import multiprocessing
 import os
 import tempfile
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
-from config_io import get_config, default_config_dir
-from datasources import update_data_sources, open_mxd
-from extrafilters import superfilter
-from helpers import asterisk_tuple, empty_tuple
-from logging_io import setup_logger
-from mplog import open_queue, logged_call
-from sddraft_io import modify_sddraft
-from services import normalize_services, get_source_info
+from .ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
+from .config_io import get_config, default_config_dir
+from .datasources import update_data_sources, open_mxd
+from .extrafilters import superfilter
+from .helpers import asterisk_tuple, empty_tuple
+from .logging_io import setup_logger
+from .mplog import open_queue, logged_call
+from .sddraft_io import modify_sddraft
+from .services import normalize_services, get_source_info
 
 log = setup_logger(__name__)
 
@@ -492,7 +490,7 @@ def publish_service(
                 .format(service_folder, service_name, datetime.datetime.now())
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
-    except StandardError:
+    except Exception:
         log.exception(
             'An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
             .format(service_folder, service_name, ags_instance)
