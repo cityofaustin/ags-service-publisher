@@ -44,7 +44,7 @@ class MxdDataSourcesReporter(BaseReporter):
         warn_on_validation_errors=False,
         config_dir=default_config_dir
     ):
-        for config_name, config in get_configs(included_configs, excluded_configs, config_dir).iteritems():
+        for config_name, config in get_configs(included_configs, excluded_configs, config_dir).items():
             env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
             services = superfilter(config['services'], included_services, excluded_services)
             default_service_properties = config.get('default_service_properties')

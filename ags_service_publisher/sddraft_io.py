@@ -96,7 +96,7 @@ def modify_sddraft(sddraft, service_properties=None):
     log.debug('{} match(es) for XPath expression: {}'.format(len(property_elements), xpath))
     for property_element in property_elements:
         property_name = property_element.find('Key').text
-        for key, value in service_properties.iteritems():
+        for key, value in service_properties.items():
             if snake_case_to_pascal_case(key).lower() == property_name.lower():
                 if str(value) == 'True' or str(value) == 'False':
                     value = str(value).lower()

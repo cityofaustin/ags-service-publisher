@@ -64,7 +64,7 @@ def ordered_dump(data, stream=None, Dumper=yaml.SafeDumper, **kwds):
         pass
 
     def _dict_representer(dumper, data):
-        return dumper.represent_dict(data.iteritems())
+        return dumper.represent_dict(data.items())
 
     OrderedDumper.add_representer(OrderedDict, _dict_representer)
 

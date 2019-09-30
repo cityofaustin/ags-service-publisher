@@ -68,7 +68,7 @@ def unquote_string(input_string):
 
 
 def format_arguments(args):
-    return ', '.join([snake_case_to_sentence_case(str(key)) + ': ' + str(value) for key, value in args.iteritems()])
+    return ', '.join([snake_case_to_sentence_case(str(key)) + ': ' + str(value) for key, value in args.items()])
 
 
 def list_files_in_dir(directory, ext=''):

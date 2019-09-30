@@ -70,7 +70,7 @@ class Runner:
         log.info('Batch publishing configs: {}'.format(', '.join(config_name for config_name in configs.keys())))
 
         def publishing_job_generator():
-            for config_name, config in configs.iteritems():
+            for config_name, config in configs.items():
                 log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
                 try:
                     for result in publish_config(
@@ -108,7 +108,7 @@ class Runner:
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
         log.info('Batch cleaning configs: {}'.format(', '.join(config_name for config_name in configs.keys())))
 
-        for config_name, config in configs.iteritems():
+        for config_name, config in configs.items():
             log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
             try:
                 cleanup_config(

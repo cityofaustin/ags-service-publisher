@@ -183,7 +183,7 @@ def update_data_sources(mxd_path, data_source_mappings):
     for layer in list_layers_in_mxd(mxd):
         if hasattr(layer, 'workspacePath'):
             layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-            for key, value in data_source_mappings.iteritems():
+            for key, value in data_source_mappings.items():
                 if fnmatch.fnmatch(layer.workspacePath, key):
                     new_workspace_path = value
                     log.info(

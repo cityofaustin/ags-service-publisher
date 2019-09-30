@@ -149,7 +149,7 @@ def analyze_services(
                                         severity = key[:-1].title()
                                         if items:
                                             log.info('----' + key.upper() + '---')
-                                            for ((message, code), layerlist) in items.iteritems():
+                                            for ((message, code), layerlist) in items.items():
                                                 code = '{:05d}'.format(code)
                                                 log_method('    {} (CODE {})'.format(message, code))
                                                 code = '="{}"'.format(code)
@@ -160,8 +160,8 @@ def analyze_services(
                                                 )
                                                 if not layerlist:
                                                     yield dict(chain(
-                                                        service_props.iteritems(),
-                                                        issue_props.iteritems()
+                                                        service_props.items(),
+                                                        issue_props.items()
                                                     ))
                                                 else:
                                                     log_method('       applies to:')
@@ -174,9 +174,9 @@ def analyze_services(
                                                         )
                                                         log_method('           {}'.format(layer_name))
                                                         yield dict(chain(
-                                                            service_props.iteritems(),
-                                                            issue_props.iteritems(),
-                                                            layer_props.iteritems()
+                                                            service_props.items(),
+                                                            issue_props.items(),
+                                                            layer_props.items()
                                                         ))
                                                 log_method('')
 
@@ -295,9 +295,9 @@ def list_service_layer_fields(
                                                 )
 
                                                 yield dict(chain(
-                                                    service_props.iteritems(),
-                                                    layer_props.iteritems(),
-                                                    field_props.iteritems()
+                                                    service_props.items(),
+                                                    layer_props.items(),
+                                                    field_props.items()
                                                 ))
                                         except Exception as e:
                                             log.exception(
@@ -308,8 +308,8 @@ def list_service_layer_fields(
                                                 raise
                                             else:
                                                 yield dict(chain(
-                                                    service_props.iteritems(),
-                                                    layer_props.iteritems()
+                                                    service_props.items(),
+                                                    layer_props.items()
                                                 ),
                                                     error='Error retrieving layer fields: {}'.format(e.message)
                                                 )
@@ -382,8 +382,8 @@ def find_service_dataset_usages(
                                     superfilter((dataset_props['version'],), included_versions, excluded_versions)
                                 ):
                                     yield dict(chain(
-                                        service_props.iteritems(),
-                                        dataset_props.iteritems()
+                                        service_props.items(),
+                                        dataset_props.items()
                                     ))
 
 

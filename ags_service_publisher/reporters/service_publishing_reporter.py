@@ -41,7 +41,7 @@ class ServicePublishingReporter(BaseReporter):
         config_dir=default_config_dir,
         create_backups=True
     ):
-        for config_name, config in get_configs(included_configs, excluded_configs, config_dir).iteritems():
+        for config_name, config in get_configs(included_configs, excluded_configs, config_dir).items():
             for result in publish_config_name(
                 config_name,
                 config_dir,

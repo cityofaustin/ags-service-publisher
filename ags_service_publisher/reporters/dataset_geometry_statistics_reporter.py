@@ -55,8 +55,8 @@ class DatasetGeometryStatisticsReporter(BaseReporter):
                     )
                     error = e.message
             yield dict(chain(
-                dataset_props.iteritems(),
-                geometry_stats.iteritems()
+                dataset_props.items(),
+                geometry_stats.items()
             ),
                 error=error
             )

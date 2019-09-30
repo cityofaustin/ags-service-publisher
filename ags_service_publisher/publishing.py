@@ -469,7 +469,7 @@ def publish_service(
         for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
             log.info('----' + key.upper() + '---')
             items = analysis[key]
-            for ((message, code), layerlist) in items.iteritems():
+            for ((message, code), layerlist) in items.items():
                 log_method('    {} (CODE {:05d})'.format(message, code))
                 log_method('       applies to:')
                 for layer in layerlist:
