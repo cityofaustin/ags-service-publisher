@@ -57,7 +57,7 @@ class BaseReporter(object):
         )
 
         if self.output_format == 'csv':
-            with file_or_stdout(self.output_filename, 'wb') as csv_file:
+            with file_or_stdout(self.output_filename, 'w') as csv_file:
                 csv_writer = csv.writer(csv_file, lineterminator='\n', dialect='excel')
                 csv_writer.writerow(self.header_row)
                 for row in report_data:
