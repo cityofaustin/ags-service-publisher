@@ -15,9 +15,7 @@ default_report_dir = os.getenv(
 )
 
 
-class BaseReporter(object):
-    __metaclass__ = abc.ABCMeta
-
+class BaseReporter(abc.ABC):
     report_type = None
     column_mappings = None
     record_class_name = None

@@ -4,6 +4,7 @@ import gc
 import inspect
 import os
 import sys
+from functools import reduce
 
 
 class NoDefaultProvided(object):
@@ -68,12 +69,20 @@ def unquote_string(input_string):
 
 
 def format_arguments(args):
-    return ', '.join([snake_case_to_sentence_case(str(key)) + ': ' + str(value) for key, value in args.items()])
+    return ', '.join([
+        snake_case_to_sentence_case(str(key)) + ': ' + str(value)
+        for key, value in args.items()
+    ])
 
 
 def list_files_in_dir(directory, ext=''):
-    return map(lambda x: os.path.abspath(os.path.join(directory, x)),
-               filter(lambda x: x.endswith(ext), os.listdir(directory)))
+    return [
+        os.path.abspath(os.path.join(directory, x))
+        for x in [
+            x
+            for x in os.listdir(directory) if x.endswith(ext)
+        ]
+    ]
 
 
 # Adapted from http://stackoverflow.com/a/4506081
@@ -96,7 +105,7 @@ def dump_func():
     frame = inspect.currentframe(1)
     func = get_func_from_frame(frame)
     argspec = inspect.getargspec(func)
-    return func.func_name, collections.OrderedDict((arg, frame.f_locals[arg]) for arg in argspec.args)
+    return func.__name__, collections.OrderedDict((arg, frame.f_locals[arg]) for arg in argspec.args)
 
 
 # Adapted from http://stackoverflow.com/a/9836725
