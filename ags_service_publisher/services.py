@@ -476,7 +476,7 @@ def normalize_services(services, default_service_properties=None, env_service_pr
 
 
 def normalize_service(service, default_service_properties=None, env_service_properties=None):
-    is_mapping = isinstance(service, collections.Mapping)
+    is_mapping = isinstance(service, collections.abc.Mapping)
     service_name = service.keys()[0] if is_mapping else service
     merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
     if env_service_properties:

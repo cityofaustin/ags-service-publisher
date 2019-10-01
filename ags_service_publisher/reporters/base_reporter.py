@@ -79,7 +79,7 @@ class BaseReporter(object):
         records = self.generate_report_records(*args, **kwargs)
         if self.record_class:
             for record in records:
-                if isinstance(record, collections.Mapping):
+                if isinstance(record, collections.abc.Mapping):
                     record_instance = self.record_class(**{k: record[k] for k in self.column_mappings.keys() if k in record})
                 else:
                     record_instance = self.record_class(*record)
