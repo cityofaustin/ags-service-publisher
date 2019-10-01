@@ -61,7 +61,7 @@ class BaseReporter(object):
                 csv_writer = csv.writer(csv_file, lineterminator='\n', dialect='excel')
                 csv_writer.writerow(self.header_row)
                 for row in report_data:
-                    csv_writer.writerow([value.encode('utf-8') if hasattr(value, 'encode') else value for value in row])
+                    csv_writer.writerow(row)
         else:
             raise RuntimeError('Unsupported output format: {}'.format(self.output_format))
 
