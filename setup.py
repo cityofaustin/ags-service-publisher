@@ -1,16 +1,12 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
-    name='ags_service_publisher',
-    version='1.2.0',
-    packages=['ags_service_publisher', 'ags_service_publisher.reporters'],
+    setup_requires=[
+        "setuptools_scm",
+    ],
     install_requires=[
         'requests',
-        'PyYAML'
+        'PyYAML',
     ],
-    url='https://github.com/cityofaustin/ags-service-publisher',
-    license='CC0',
-    author='Logan Pugh',
-    author_email='logan.pugh@austintexas.gov',
-    description='Tools for publishing and managing services on ArcGIS Server'
+    use_scm_version=True,
 )
