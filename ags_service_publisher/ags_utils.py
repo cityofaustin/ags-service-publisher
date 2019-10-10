@@ -665,7 +665,7 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
             sde_connection_file
         )
     except Exception as e:
-        if e.message == 'Client database entry is already registered.':
+        if hasattr(e, 'message') and e.message == 'Client database entry is already registered.':
             log.warn(e.message)
         else:
             log.exception(
