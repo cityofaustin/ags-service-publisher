@@ -4,6 +4,7 @@ import os
 import tempfile
 from copy import deepcopy
 from itertools import chain
+from pathlib import Path
 from shutil import rmtree
 
 from .ags_utils import (
@@ -17,7 +18,13 @@ from .ags_utils import (
     test_service
 )
 from .config_io import get_config, default_config_dir
-from .datasources import open_mxd, list_layers_in_mxd, get_layer_fields, get_layer_properties
+from .datasources import (
+    convert_mxd_to_aprx,
+    open_aprx,
+    list_layers_in_map,
+    get_layer_fields,
+    get_layer_properties,
+)
 from .extrafilters import superfilter
 from .helpers import asterisk_tuple, empty_tuple
 from .logging_io import setup_logger
@@ -103,38 +110,48 @@ def analyze_services(
                             try:
                                 service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
                                 service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
+                                file_path = Path(file_path)
                                 file_type = {
-                                    'MapServer': 'MXD',
+                                    'MapServer': 'ArcGIS Pro project file' if file_path.suffix.lower() == '.aprx' else 'MXD',
                                     'GeocodeServer': 'Locator'
                                 }[service_type]
                                 log.info(
-                                    'Analyzing {} service {}/{} on ArcGIS Server instance {} (Connection File: {}, {} Path: {})'
-                                    .format(service_type, service_folder, service_name, ags_instance, ags_connection, file_type, file_path)
+                                    f'Analyzing {service_type} service {service_folder}/{service_name} '
+                                    f'on ArcGIS Server instance {ags_instance} (Connection File: {ags_connection}, '
+                                    f'{file_type} Path: {file_path})'
                                 )
                                 if not arcpy.Exists(file_path):
-                                    raise RuntimeError('{} {} does not exist!'.format(file_type, file_path))
+                                    raise RuntimeError(f'{file_type} {file_path} does not exist!')
                                 try:
-                                    tempdir = tempfile.mkdtemp()
-                                    log.debug('Temporary directory created: {}'.format(tempdir))
-                                    sddraft = os.path.join(tempdir, service_name + '.sddraft')
-                                    log.debug('Creating SDDraft file: {}'.format(sddraft))
+                                    tempdir = Path(tempfile.mkdtemp())
+                                    log.debug(f'Temporary directory created: {tempdir}')
+                                    sddraft = tempdir / f'{service_name}.sddraft'
+                                    log.debug(f'Creating SDDraft file: {sddraft}')
 
                                     if service_type == 'MapServer':
-                                        mxd = open_mxd(file_path)
-                                        analysis = arcpy.mapping.CreateMapSDDraft(
-                                            mxd,
-                                            sddraft,
-                                            service_name,
-                                            'FROM_CONNECTION_FILE',
-                                            ags_connection,
-                                            False,
-                                            service_folder
+                                        if file_path.suffix.lower() == '.aprx':
+                                            aprx = open_aprx(file_path)
+                                        elif file_path.suffix.lower() == '.mxd':
+                                            temp_aprx_path = tempdir / f'{service_name}.aprx'
+                                            convert_mxd_to_aprx(file_path, temp_aprx_path)
+                                            aprx = open_aprx(temp_aprx_path)
+                                        else:
+                                            raise RuntimeError(f'Unrecognized file type for {file_path}')
+
+                                        map_ = aprx.listMaps()[0]
+                                        map_service_draft = arcpy.sharing.CreateSharingDraft(
+                                            server_type='STANDALONE_SERVER',
+                                            service_type='MAP_SERVICE',
+                                            service_name=service_name,
+                                            draft_value=map_
                                         )
+                                        map_service_draft.targetServer = ags_connection
+                                        map_service_draft.exportToSDDraft(str(sddraft))
                                     elif service_type == 'GeocodeServer':
                                         locator_path = file_path
                                         analysis = arcpy.CreateGeocodeSDDraft(
-                                            locator_path,
-                                            sddraft,
+                                            str(locator_path),
+                                            str(sddraft),
                                             service_name,
                                             'FROM_CONNECTION_FILE',
                                             ags_connection,
@@ -186,7 +203,7 @@ def analyze_services(
                                         log.error(error_message)
                                         raise RuntimeError(error_message, analysis['errors'])
                                 finally:
-                                    log.debug('Cleaning up temporary directory: {}'.format(tempdir))
+                                    log.debug(f'Cleaning up temporary directory: {tempdir}')
                                     rmtree(tempdir, ignore_errors=True)
                             except Exception as e:
                                 log.exception(
@@ -198,7 +215,7 @@ def analyze_services(
                                 else:
                                     yield dict(
                                         severity='Error',
-                                        message=e.message,
+                                        message=str(e),
                                         **service_props
                                     )
 
@@ -245,86 +262,99 @@ def list_service_layer_fields(
                             )
                             try:
                                 service_manifest = get_service_manifest(server_url, token, service_name, service_folder, service_type, session=session)
-                                service_props['mxd_path'] = mxd_path = service_manifest['resources'][0]['onPremisePath']
+                                service_props['file_path'] = file_path = service_manifest['resources'][0]['onPremisePath']
+                                file_path = Path(file_path)
                                 log.info(
-                                    'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
-                                    'on ArcGIS Server instance {ags_instance} '
-                                    '(Connection File: {ags_connection}, MXD Path: {mxd_path})'
-                                    .format(**service_props)
+                                    f'Listing layers and fields for {service_type} service {service_folder}/{service_name} '
+                                    f'on ArcGIS Server instance {ags_instance} '
+                                    f'(Connection File: {ags_connection}, File Path: {file_path})'
                                 )
-                                if not arcpy.Exists(mxd_path):
-                                    raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
-                                mxd = open_mxd(mxd_path)
-                                for layer in list_layers_in_mxd(mxd):
-                                    if not (
-                                        (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
-                                        (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
-                                    ):
-                                        layer_name = getattr(layer, 'longName', layer.name)
-                                        try:
-                                            layer_props = get_layer_properties(layer)
-                                        except Exception as e:
-                                            log.exception(
-                                                'An error occurred while retrieving properties for layer {} in MXD {}'
-                                                .format(layer_name, mxd_path)
-                                            )
-                                            if not warn_on_errors:
-                                                raise
-                                            else:
-                                                yield dict(
-                                                    error='Error retrieving layer properties: {}'.format(e.message),
-                                                    layer_name=layer_name,
-                                                    **service_props
-                                                )
-                                                continue
-                                        try:
-                                            if layer_props['is_broken']:
-                                                raise RuntimeError(
-                                                    'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
-                                                        layer_name,
-                                                        getattr(layer, 'dataSource', 'n/a')
-                                                    )
-                                                )
-                                            for field_props in get_layer_fields(layer):
-                                                field_props['needs_index'] = not field_props['has_index'] and (
-                                                    field_props['in_definition_query'] or
-                                                    field_props['in_label_class_expression'] or
-                                                    field_props['in_label_class_sql_query'] or
-                                                    field_props['field_name'] == layer_props['symbology_field'] or
-                                                    field_props['field_type'] == 'Geometry'
-                                                )
+                                file_type = 'ArcGIS Pro project file' if file_path.suffix.lower() == '.aprx' else 'MXD'
+                                if not arcpy.Exists(file_path):
+                                    raise RuntimeError(f'{file_type} {file_path} does not exist!')
+                                try:
+                                    if file_path.suffix.lower() == '.aprx':
+                                        aprx = open_aprx(file_path)
+                                    elif file_path.suffix.lower() == '.mxd':
+                                        tempdir = Path(tempfile.mkdtemp())
+                                        log.debug(f'Temporary directory created: {tempdir}')
+                                        temp_aprx_path = tempdir / f'{service_name}.aprx'
+                                        convert_mxd_to_aprx(file_path, temp_aprx_path)
+                                        aprx = open_aprx(temp_aprx_path)
+                                    else:
+                                        raise RuntimeError(f'Unrecognized file type for {file_path}')
 
-                                                yield dict(chain(
-                                                    service_props.items(),
-                                                    layer_props.items(),
-                                                    field_props.items()
-                                                ))
-                                        except Exception as e:
-                                            log.exception(
-                                                'An error occurred while listing fields for layer {} in MXD {}'
-                                                .format(layer_name, mxd_path)
-                                            )
-                                            if not warn_on_errors:
-                                                raise
-                                            else:
-                                                yield dict(chain(
-                                                    service_props.items(),
-                                                    layer_props.items()
-                                                ),
-                                                    error='Error retrieving layer fields: {}'.format(e.message)
+                                    for layer in list_layers_in_map(aprx.listMaps()[0]):
+                                        if not (
+                                            (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
+                                            (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
+                                        ):
+                                            layer_name = getattr(layer, 'longName', layer.name)
+                                            try:
+                                                layer_props = get_layer_properties(layer)
+                                            except Exception as e:
+                                                log.exception(
+                                                    f'An error occurred while retrieving properties for layer {layer_name} in {file_type} {file_path}'
                                                 )
+                                                if not warn_on_errors:
+                                                    raise
+                                                else:
+                                                    yield dict(
+                                                        error=f'Error retrieving layer properties: {e}',
+                                                        layer_name=layer_name,
+                                                        **service_props
+                                                    )
+                                                    continue
+                                            try:
+                                                if layer_props['is_broken']:
+                                                    raise RuntimeError(
+                                                        'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
+                                                            layer_name,
+                                                            getattr(layer, 'dataSource', 'n/a')
+                                                        )
+                                                    )
+                                                for field_props in get_layer_fields(layer):
+                                                    field_props['needs_index'] = not field_props['has_index'] and (
+                                                        field_props['in_definition_query'] or
+                                                        field_props['in_label_class_expression'] or
+                                                        field_props['in_label_class_sql_query'] or
+                                                        field_props['field_name'] == layer_props['symbology_field'] or
+                                                        field_props['field_type'] == 'Geometry'
+                                                    )
+
+                                                    yield dict(chain(
+                                                        service_props.items(),
+                                                        layer_props.items(),
+                                                        field_props.items()
+                                                    ))
+                                            except Exception as e:
+                                                log.exception(
+                                                    f'An error occurred while listing fields for layer {layer_name} in {file_type} {file_path}'
+                                                )
+                                                if not warn_on_errors:
+                                                    raise
+                                                else:
+                                                    yield dict(chain(
+                                                        service_props.items(),
+                                                        layer_props.items()
+                                                    ),
+                                                        error=f'Error retrieving layer fields: {e}'
+                                                    )
+                                finally:
+                                    if tempdir:
+                                        log.debug(f'Cleaning up temporary directory: {tempdir}')
+                                        rmtree(tempdir, ignore_errors=True)
                             except Exception as e:
                                 log.exception(
-                                    'An error occurred while listing layers and fields for '
-                                    '{service_type} service {service_folder}/{service_name} on '
-                                    'ArcGIS Server instance {ags_instance} (Connection File: {ags_connection})'
-                                    .format(**service_props)
+                                    f'An error occurred while listing layers and fields for '
+                                    f'{service_type} service {service_folder}/{service_name} on '
+                                    f'ArcGIS Server instance {ags_instance} (Connection File: {ags_connection})'
                                 )
                                 if not warn_on_errors:
                                     raise
                                 else:
                                     yield dict(
-                                        error=e.message,
+                                        error=str(e),
                                         **service_props
                                     )
 

@@ -2,11 +2,12 @@ import datetime
 import multiprocessing
 import os
 import tempfile
+from pathlib import Path
 from shutil import copyfile, rmtree
 
 from .ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
 from .config_io import get_config, default_config_dir
-from .datasources import update_data_sources, open_mxd
+from .datasources import update_data_sources, convert_mxd_to_aprx, open_aprx
 from .extrafilters import superfilter
 from .helpers import asterisk_tuple, empty_tuple
 from .logging_io import setup_logger
@@ -109,10 +110,10 @@ def publish_env(
     create_backups=True
 ):
     env = config['environments'][env_name]
-    source_dir = env['source_dir']
+    source_dir = Path(env['source_dir'])
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     services = superfilter(config['services'], included_services, excluded_services)
-    service_folder = config.get('service_folder', os.path.basename(source_dir))
+    service_folder = config.get('service_folder', source_dir.name)
     default_service_properties = config.get('default_service_properties')
     env_service_properties = env.get('service_properties', {})
     data_source_mappings = env.get('data_source_mappings', {})
@@ -417,35 +418,44 @@ def publish_service(
     arcpy.env.overwriteOutput = True
 
     original_service_name = service_name
-    service_name = '{}{}{}'.format(service_prefix, service_name, service_suffix)
+    service_name = f'{service_prefix}{service_name}{service_suffix}'
 
     log.info(
-        'Publishing {} service {} to ArcGIS Server instance {}, Connection File: {}, Service Folder: {}'
-        .format(service_type, service_name, ags_instance, ags_connection, service_folder)
+        f'Publishing {service_type} service {service_name} to ArcGIS Server instance {ags_instance}, '
+        f'Connection File: {ags_connection}, Service Folder: {service_folder}'
     )
 
-    tempdir = tempfile.mkdtemp()
-    log.debug('Temporary directory created: {}'.format(tempdir))
+    tempdir = Path(tempfile.mkdtemp())
+    log.debug(f'Temporary directory created: {tempdir}')
     try:
-        sddraft = os.path.join(tempdir, service_name + '.sddraft')
-        sd = os.path.join(tempdir, service_name + '.sd')
-        log.debug('Creating SDDraft file: {}'.format(sddraft))
+        sddraft = tempdir / f'{service_name}.sddraft'
+        sd = tempdir / f'{service_name}.sd'
+        log.debug(f'Creating SDDraft file: {sddraft}')
 
         if service_type == 'MapServer':
-            mxd_path = os.path.join(source_dir, original_service_name + '.mxd')
-            mxd = open_mxd(mxd_path)
-            arcpy.mapping.CreateMapSDDraft(
-                mxd,
-                sddraft,
-                service_name,
-                'FROM_CONNECTION_FILE',
-                ags_connection,
-                False,
-                service_folder
+            file_path = Path(source_dir) / f'{original_service_name}.mxd'
+            if not file_path.exists():
+                file_path = Path(source_dir) / f'{original_service_name}.aprx'
+                if not file_path.exists():
+                    raise RuntimeError(f'No MXD or ArcGIS Pro project file found for service {service_name} in {source_dir}')
+            if file_path.suffix.lower() == '.aprx':
+                aprx = open_aprx(file_path)
+            elif file_path.suffix.lower() == '.mxd':
+                temp_aprx_path = tempdir / f'{service_name}.aprx'
+                convert_mxd_to_aprx(file_path, temp_aprx_path)
+                aprx = open_aprx(temp_aprx_path)
+            else:
+                raise RuntimeError(f'Unrecognized file type for {file_path}')
+            map_ = aprx.listMaps()[0]
+            map_service_draft = arcpy.sharing.CreateSharingDraft(
+                server_type='STANDALONE_SERVER',
+                service_type='MAP_SERVICE',
+                service_name=service_name,
+                draft_value=map_
             )
+            map_service_draft.targetServer = ags_connection
+            map_service_draft.exportToSDDraft(str(sddraft))
             modify_sddraft(sddraft, service_properties)
-            log.debug('Analyzing SDDraft file: {}'.format(sddraft))
-            analysis = arcpy.mapping.AnalyzeForSD(sddraft)
 
         elif service_type == 'GeocodeServer':
             locator_path = os.path.join(source_dir, original_service_name)

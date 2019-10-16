@@ -53,7 +53,7 @@ class DatasetGeometryStatisticsReporter(BaseReporter):
                         'dataset path: {dataset_path}'
                         .format(**dataset_props)
                     )
-                    error = e.message
+                    error = str(e)
             yield dict(chain(
                 dataset_props.items(),
                 geometry_stats.items()

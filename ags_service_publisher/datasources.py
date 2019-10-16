@@ -1,6 +1,6 @@
-import os
 import re
 import fnmatch
+from pathlib import Path
 
 from .helpers import list_files_in_dir, deep_get
 from .logging_io import setup_logger
@@ -18,39 +18,51 @@ def list_sde_connection_files_in_folder(sde_connections_dir):
     return list_files_in_dir(sde_connections_dir, ext='.sde')
 
 
-def get_unique_data_sources(mxd_paths, include_table_views=True):
-    log.debug('Getting unique data sources for MXD paths: {}'.format(mxd_paths))
+def get_unique_data_sources(aprx_paths, include_table_views=True):
+    log.debug(f'Getting unique data sources for ArcGIS Pro project files: {aprx_paths}')
     data_sources = []
-    for mxd_path in mxd_paths:
-        data_sources.extend([data_source[2] for data_source in get_mxd_data_sources(mxd_path, include_table_views)])
+    for aprx_path in aprx_paths:
+        data_sources.extend([data_source[2] for data_source in get_aprx_data_sources(aprx_path, include_table_views)])
     unique_data_sources = list(set(data_sources))
     return unique_data_sources
 
 
-def open_mxd(mxd_path):
-    if not os.path.isfile(mxd_path):
-        raise RuntimeError('MXD {} does not exist!'.format(mxd_path))
+def open_aprx(aprx_path):
+    log.debug(f'Opening ArcGIS Pro project file {aprx_path}')
+    if not aprx_path == 'CURRENT':
+        aprx_path = Path(aprx_path)
+        if not aprx_path.is_file():
+            raise RuntimeError(f'ArcGIS Pro project file {aprx_path} does not exist!')
 
     import arcpy
-    return arcpy.mapping.MapDocument(mxd_path)
+    return arcpy.mp.ArcGISProject(str(aprx_path))
 
 
-def list_layers_in_mxd(mxd, include_table_views=True):
-    log.debug('Listing layers in MXD: {}'.format(mxd.filePath))
+def convert_mxd_to_aprx(mxd_path, aprx_path):
+    log.info(f'Converting MXD {mxd_path} to ArcGIS Pro project file {aprx_path}')
+    blank_aprx_path = Path(__file__) / '../../resources/arcgis/projects/blank/blank.aprx'
+    blank_aprx_path = blank_aprx_path.resolve()
+    blank_aprx = open_aprx(blank_aprx_path)
+    blank_aprx.importDocument(mxd_path)
+    blank_aprx.saveACopy(aprx_path)
+    log.info(f'Successfully converted MXD {mxd_path} to ArcGIS Pro project file {aprx_path}')
 
-    import arcpy
-    layers = arcpy.mapping.ListLayers(mxd)
+
+def list_layers_in_map(map_, include_table_views=True):
+    log.debug(f'Listing layers in map: {map_.name}')
+
+    layers = map_.listLayers()
     if include_table_views:
-        layers.extend(arcpy.mapping.ListTableViews(mxd))
+        layers.extend(map_.listTables())
     for layer in layers:
         yield layer
 
 
-def get_mxd_data_sources(mxd_path, include_table_views=True):
-    log.debug('Getting data sources for MXD: {}'.format(mxd_path))
+def get_aprx_data_sources(aprx_path, include_table_views=True):
+    log.debug('Getting data sources for ArcGIS Pro project file: {}'.format(aprx_path))
 
-    for layer in list_layers_in_mxd(open_mxd(mxd_path), include_table_views):
-        if hasattr(layer, 'workspacePath'):
+    for layer in list_layers_in_map(open_aprx(aprx_path).listMaps()[0], include_table_views):
+        if hasattr(layer, 'dataSource'):
             yield get_layer_properties(layer)
 
 
@@ -58,7 +70,7 @@ def get_layer_properties(layer):
     layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
     log.debug('Getting properties for layer: {}'.format(layer_name))
 
-    if hasattr(layer, 'workspacePath'):
+    if hasattr(layer, 'dataSource'):
         (
             definition_query,
             show_labels,
@@ -83,7 +95,6 @@ def get_layer_properties(layer):
         result = dict(
             layer_name=layer_name,
             dataset_name=layer.datasetName,
-            workspace_path=layer.workspacePath,
             is_broken=layer.isBroken,
             user=user,
             database=database,
@@ -97,7 +108,6 @@ def get_layer_properties(layer):
         log.debug(
             'Layer name: {layer_name}, '
             'Dataset name: {dataset_name}, '
-            'Workspace path: {workspace_path}, '
             'Data source is broken: {is_broken}, '
             'User: {user}, '
             'Database: {database}, '
@@ -176,11 +186,11 @@ def parse_database_from_service_string(database):
     return database
 
 
-def update_data_sources(mxd_path, data_source_mappings):
-    log.info('Updating data sources in MXD: {}'.format(mxd_path))
+def update_data_sources(aprx_path, data_source_mappings):
+    log.info('Updating data sources in ArcGIS Pro project file: {}'.format(aprx_path))
 
-    mxd = open_mxd(mxd_path)
-    for layer in list_layers_in_mxd(mxd):
+    aprx = open_aprx(aprx_path)
+    for layer in list_layers_in_map(aprx.listMaps()[0]):
         if hasattr(layer, 'workspacePath'):
             layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
             for key, value in data_source_mappings.items():
@@ -198,7 +208,7 @@ def update_data_sources(mxd_path, data_source_mappings):
                     'No match for layer {}, dataset name: {}, workspace path: {}'
                     .format(layer_name, layer.datasetName, layer.workspacePath)
                 )
-    mxd.save()
+    aprx.save()
 
 
 def get_geometry_statistics(dataset_path):

@@ -1,7 +1,7 @@
 import collections
 
 from ..config_io import default_config_dir, get_configs
-from ..datasources import get_mxd_data_sources
+from ..datasources import get_aprx_data_sources
 from ..extrafilters import superfilter
 from ..helpers import asterisk_tuple, empty_tuple
 from ..logging_io import setup_logger
@@ -83,7 +83,7 @@ class MxdDataSourcesReporter(BaseReporter):
                 ):
                     if service_type == 'MapServer':
                         def generate_mxd_data_sources_report_rows(mxd_path, mxd_type):
-                            for layer_properties in get_mxd_data_sources(mxd_path):
+                            for layer_properties in get_aprx_data_sources(mxd_path):
                                 if (
                                     superfilter((layer_properties['dataset_name'],), included_datasets, excluded_datasets) and
                                     superfilter((layer_properties['user'],), included_users, excluded_users) and

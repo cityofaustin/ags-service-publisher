@@ -458,7 +458,7 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
         if not warn_on_errors:
             raise
         return {
-            'error_message': e.message
+            'error_message': str(e)
         }
 
 
@@ -665,8 +665,8 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
             sde_connection_file
         )
     except Exception as e:
-        if hasattr(e, 'message') and e.message == 'Client database entry is already registered.':
-            log.warn(e.message)
+        if str(e) == 'Client database entry is already registered.':
+            log.warn(e)
         else:
             log.exception(
                 'An error occurred while importing SDE connection file {} to ArcGIS Server connection file {})'
