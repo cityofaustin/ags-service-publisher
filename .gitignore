@@ -9,4 +9,4 @@ reports
 *.egg-info
 /.eggs
 /*.code-workspace
-
+/resources/arcgis/projects/blank
