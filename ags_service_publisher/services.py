@@ -183,7 +183,7 @@ def analyze_services(
                                                 else:
                                                     log_method('       applies to:')
                                                     for layer in layerlist:
-                                                        layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+                                                        layer_name = getattr(layer, 'longName', layer.name)
                                                         layer_props = dict(
                                                             dataset_name=layer.datasetName,
                                                             workspace_path=layer.workspacePath,
@@ -286,8 +286,8 @@ def list_service_layer_fields(
 
                                     for layer in list_layers_in_map(aprx.listMaps()[0]):
                                         if not (
-                                            (hasattr(layer, 'isGroupLayer') and layer.isGroupLayer) or
-                                            (hasattr(layer, 'isRasterLayer') and layer.isRasterLayer)
+                                            getattr(layer, 'isGroupLayer', False) or
+                                            getattr(layer, 'isRasterLayer', False)
                                         ):
                                             layer_name = getattr(layer, 'longName', layer.name)
                                             try:
@@ -318,7 +318,7 @@ def list_service_layer_fields(
                                                         field_props['in_definition_query'] or
                                                         field_props['in_label_class_expression'] or
                                                         field_props['in_label_class_sql_query'] or
-                                                        field_props['field_name'] == layer_props['symbology_field'] or
+                                                        field_props['field_name'] in layer_props['symbology_fields'] or
                                                         field_props['field_type'] == 'Geometry'
                                                     )
 

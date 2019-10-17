@@ -68,33 +68,34 @@ def get_aprx_data_sources(aprx_path, include_table_views=True):
 
 def get_layer_properties(layer):
     layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-    log.debug('Getting properties for layer: {}'.format(layer_name))
+    log.debug(f'Getting properties for layer: {layer_name}')
 
     if hasattr(layer, 'dataSource'):
         (
             definition_query,
             show_labels,
             symbology_type,
-            symbology_field,
+            symbology_fields,
+            dataset_name,
             user,
             version,
-            service
+            database,
         ) = (
             deep_get(layer, attr, 'n/a') for attr in (
                 'definitionQuery',
                 'showLabels',
-                'symbologyType',
-                'symbology.valueField',
-                'serviceProperties.UserName',
-                'serviceProperties.Version',
-                'serviceProperties.Service'
+                'symbology.renderer.type',
+                'symbology.renderer.fields',
+                'connectionProperties.dataset',
+                'connectionProperties.connection_info.user',
+                'connectionProperties.connection_info.version',
+                'connectionProperties.connection_info.server',
             )
         )
-        database = parse_database_from_service_string(service)
 
         result = dict(
             layer_name=layer_name,
-            dataset_name=layer.datasetName,
+            dataset_name=dataset_name,
             is_broken=layer.isBroken,
             user=user,
             database=database,
@@ -102,7 +103,7 @@ def get_layer_properties(layer):
             definition_query=definition_query,
             show_labels=show_labels,
             symbology_type=symbology_type,
-            symbology_field=symbology_field
+            symbology_fields=symbology_fields
         )
 
         log.debug(
@@ -115,17 +116,18 @@ def get_layer_properties(layer):
             'Definition query: {definition_query}, '
             'Show labels: {show_labels}, '
             'Symbology type: {symbology_type}, '
-            'Symbology field: {symbology_field}'
+            'Symbology fields: {symbology_fields}'
             .format(**result)
         )
 
         return result
     else:
-        raise RuntimeError('Unsupported layer: {}'.format(layer_name))
+        raise RuntimeError(f'Unsupported layer: {layer_name}')
 
 
 def get_layer_fields(layer):
-    log.debug('Getting fields for layer: {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
+    layer_name = getattr(layer, 'longName', layer.name)
+    log.debug(f'Getting fields for layer: {layer_name}')
     import arcpy
     desc = arcpy.Describe(layer)
     fields = desc.fields
@@ -143,7 +145,7 @@ def get_layer_fields(layer):
 
 def get_field_index(field, indexes):
     field_name = field.name
-    log.debug('Getting index for field: {}'.format(field_name))
+    log.debug(f'Getting index for field: {field_name}')
     has_index = False
     for index in indexes:
         for index_field in index.fields:
@@ -159,14 +161,14 @@ def get_field_index(field, indexes):
 
 def find_field_in_label_classes(layer, field):
     in_label_class_expression = in_label_class_sql_query = False
-    if (hasattr(layer, 'showLabels') and layer.showLabels) and hasattr(layer, 'labelClasses'):
-        label_classes = layer.labelClasses
+    if getattr(layer, 'showLabels'):
+        label_classes = layer.listLabelClasses()
         field_name = field.name
-        log.debug('Finding occurrences of field {} in label classes'.format(field_name))
+        log.debug(f'Finding occurrences of field {field_name} in label classes')
         for label_class in label_classes:
             if in_label_class_expression and in_label_class_sql_query:
                 break
-            if label_class.showClassLabels:
+            if label_class.visible:
                 if not in_label_class_expression and label_class.expression:
                     in_label_class_expression = field_name.lower() in label_class.expression.lower()
                 if not in_label_class_sql_query and label_class.SQLQuery:
