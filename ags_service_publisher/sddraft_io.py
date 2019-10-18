@@ -105,7 +105,7 @@ def modify_sddraft(sddraft, service_properties=None):
 
     # Add the namespaces which get stripped back into the .SD
     root_elem = tree.getroot()
-    root_elem.attrib['xmlns:typens'] = 'http://www.esri.com/schemas/ArcGIS/10.1'
+    root_elem.attrib['xmlns:typens'] = 'http://www.esri.com/schemas/ArcGIS/2.4.0'
     root_elem.attrib['xmlns:xs'] = 'http://www.w3.org/2001/XMLSchema'
     log.debug('Writing service definition file: {}'.format(sddraft))
     tree.write(sddraft)

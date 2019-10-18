@@ -126,6 +126,7 @@ def analyze_services(
                                     tempdir = Path(tempfile.mkdtemp())
                                     log.debug(f'Temporary directory created: {tempdir}')
                                     sddraft = tempdir / f'{service_name}.sddraft'
+                                    sd = tempdir / f'{service_name}.sd'
                                     log.debug(f'Creating SDDraft file: {sddraft}')
 
                                     if service_type == 'MapServer':
@@ -147,6 +148,14 @@ def analyze_services(
                                         )
                                         map_service_draft.targetServer = ags_connection
                                         map_service_draft.exportToSDDraft(str(sddraft))
+                                        log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
+                                        result = arcpy.StageService_server(str(sddraft), str(sd))
+                                        analysis = {}
+                                        for key, severity in (('messages', 0), ('warnings', 1), ('errors', 2)):
+                                            analysis[key] = {}
+                                            for i in range(result.messageCount):
+                                                if result.getSeverity(i) == severity:
+                                                    analysis[key][(result.getMessage(i), 0)] = None
                                     elif service_type == 'GeocodeServer':
                                         locator_path = file_path
                                         analysis = arcpy.CreateGeocodeSDDraft(
@@ -195,7 +204,6 @@ def analyze_services(
                                                             issue_props.items(),
                                                             layer_props.items()
                                                         ))
-                                                log_method('')
 
                                     if analysis['errors']:
                                         error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
@@ -533,8 +541,7 @@ def normalize_service(service, default_service_properties=None, env_service_prop
 
 def get_source_info(services, source_dir, staging_dir, default_service_properties, env_service_properties):
     log.debug(
-        'Getting source info for services {}, source directory: {}, staging directory {}'
-        .format(services, source_dir, staging_dir)
+        f'Getting source info for services {services}, source directory: {source_dir}, staging directory {staging_dir}'
     )
 
     source_info = {}
@@ -558,22 +565,28 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
             # If multiple staging folders are provided, look for the source item in each staging folder
             staging_dirs = (staging_dir,) if isinstance(staging_dir, str) else staging_dir
             for _staging_dir in staging_dirs:
-                log.debug('Finding staging items in directory: {}'.format(_staging_dir))
+                log.debug(f'Finding staging items in directory: {_staging_dir}')
+                _staging_dir = Path(_staging_dir)
                 if service_type == 'MapServer':
-                    staging_file = os.path.abspath(os.path.join(_staging_dir, service_name + '.mxd'))
+                    # First look for APRX file
+                    staging_file = _staging_dir / f'{service_name}.aprx'
+                    if not staging_file.is_file():
+                        # Fall back to MXD file
+                        staging_file = _staging_dir / f'{service_name}.mxd'
                 elif service_type == 'GeocodeServer':
-                    staging_file = os.path.abspath(os.path.join(_staging_dir, service_name + '.loc'))
+                    staging_file = _staging_dir / f'{service_name}.loc'
                 else:
-                    log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
+                    log.debug(f'Unsupported service type {service_type} of service {service_name} will be skipped')
+                    continue
 
-                if os.path.isfile(staging_file):
-                    log.debug('Staging file found: {}'.format(staging_file))
-                    staging_files.append(staging_file)
+                if staging_file.is_file():
+                    log.debug(f'Staging file found: {staging_file}')
+                    staging_files.append(str(staging_file))
                 else:
-                    log.debug('Staging file missing: {}'.format(staging_file))
+                    log.debug(f'Staging file missing: {staging_file}')
 
             if len(staging_files) == 0:
-                errors.append('- No staging file found for service {}'.format(service_name))
+                errors.append(f'- No staging file found for service {service_name}')
             elif len(staging_files) > 1:
                 errors.append(
                     '- More than one staging file found for service {}: \n{}'
@@ -584,18 +597,25 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
                 )
 
         if source_dir:
-            log.debug('Finding source files in directory: {}'.format(source_dir))
+            log.debug(f'Finding source files in directory: {source_dir}')
+            source_dir = Path(source_dir)
             if service_type == 'MapServer':
-                source_file = os.path.abspath(os.path.join(source_dir, service_name + '.mxd'))
+                # First look for APRX file
+                source_file = source_dir / f'{service_name}.aprx'
+                if not source_file.is_file():
+                    # Fall back to MXD file
+                    source_file = source_dir / f'{service_name}.mxd'
             elif service_type == 'GeocodeServer':
-                source_file = os.path.abspath(os.path.join(source_dir, service_name + '.loc'))
+                source_file = source_dir / f'{service_name}.loc'
             else:
-                log.debug('Unsupported service type {} of service {} will be skipped'.format(service_type, service_name))
-            if os.path.isfile(source_file):
-                log.debug('Source file found: {}'.format(source_file))
-                service_info['source_file'] = source_file
+                log.debug(f'Unsupported service type {service_type} of service {service_name} will be skipped')
+                continue
+            source_file = source_file.resolve()
+            if source_file.is_file():
+                log.debug(f'Source file found: {source_file}')
+                service_info['source_file'] = str(source_file)
             else:
-                log.debug('Source file missing: {}'.format(source_file))
-                errors.append('- Source file {} for service {} does not exist!'.format(source_file, service_name))
+                log.debug(f'Source file missing: {source_file}')
+                errors.append(f'- Source file {source_file} for service {service_name} does not exist!')
 
     return source_info, errors

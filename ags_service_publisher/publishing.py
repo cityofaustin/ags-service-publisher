@@ -430,7 +430,6 @@ def publish_service(
     try:
         sddraft = tempdir / f'{service_name}.sddraft'
         sd = tempdir / f'{service_name}.sd'
-        log.debug(f'Creating SDDraft file: {sddraft}')
 
         if service_type == 'MapServer':
             file_path = Path(source_dir) / f'{original_service_name}.mxd'
@@ -454,8 +453,17 @@ def publish_service(
                 draft_value=map_
             )
             map_service_draft.targetServer = ags_connection
+            log.debug(f'Creating SDDraft file: {sddraft}')
             map_service_draft.exportToSDDraft(str(sddraft))
-            modify_sddraft(sddraft, service_properties)
+            modify_sddraft(str(sddraft), service_properties)
+            log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
+            result = arcpy.StageService_server(str(sddraft), str(sd))
+            analysis = {}
+            for key, severity in (('messages', 0), ('warnings', 1), ('errors', 2)):
+                analysis[key] = {}
+                for i in range(result.messageCount):
+                    if result.getSeverity(i) == severity:
+                        analysis[key][(result.getMessage(i), 0)] = None
 
         elif service_type == 'GeocodeServer':
             locator_path = os.path.join(source_dir, original_service_name)
@@ -481,16 +489,17 @@ def publish_service(
             items = analysis[key]
             for ((message, code), layerlist) in items.items():
                 log_method('    {} (CODE {:05d})'.format(message, code))
-                log_method('       applies to:')
-                for layer in layerlist:
-                    log_method('           {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
-                log_method('')
+                if layerlist:
+                    log_method('       applies to:')
+                    for layer in layerlist:
+                        log_method('           {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
 
         if analysis['errors'] == {}:
-            log.debug('Staging SDDraft file: {} to SD file: {}'.format(sddraft, sd))
-            arcpy.StageService_server(sddraft, sd)
+            if not sd.is_file():
+                log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
+                arcpy.StageService_server(str(sddraft), str(sd))
             log.debug('Uploading SD file: {} to AGS connection file: {}'.format(sd, ags_connection))
-            arcpy.UploadServiceDefinition_server(sd, ags_connection)
+            arcpy.UploadServiceDefinition_server(str(sd), ags_connection)
             log.info(
                 'Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
                 .format(service_folder, service_name, ags_instance, datetime.datetime.now())
