@@ -11,7 +11,7 @@ from .publishing import cleanup_config, publish_config
 from .reporters import (
     DatasetGeometryStatisticsReporter,
     DatasetUsagesReporter,
-    MxdDataSourcesReporter,
+    MapDataSourcesReporter,
     ServiceAnalysisReporter,
     ServiceComparisonReporter,
     ServiceHealthReporter,
@@ -48,9 +48,9 @@ class Runner:
         if not self.verbose:
             logging.getLogger('requests').setLevel(logging.WARNING)
         if self.log_to_file:
-            log.debug('Using log directory: {}'.format(self.log_dir))
-        log.debug('Using config directory: {}'.format(self.config_dir))
-        log.debug('Using report directory: {}'.format(self.report_dir))
+            log.debug(f'Using log directory: {self.log_dir}')
+        log.debug(f'Using config directory: {self.config_dir}')
+        log.debug(f'Using report directory: {self.report_dir}')
 
     def run_batch_publishing_job(
         self,
@@ -67,7 +67,7 @@ class Runner:
         create_backups=True
     ):
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
-        log.info('Batch publishing configs: {}'.format(', '.join(config_name for config_name in configs.keys())))
+        log.info(f'Batch publishing configs: {", ".join(config_name for config_name in configs.keys())}')
 
         def publishing_job_generator():
             for config_name, config in configs.items():
@@ -90,8 +90,8 @@ class Runner:
                         result['config_name'] = config_name
                         yield result
                 except Exception:
-                    log.exception('An error occurred while publishing config \'{}\''.format(config_name))
-                    log.error('See the log file at {}'.format(log_file_handler.baseFilename))
+                    log.exception(f'An error occurred while publishing config \'{config_name}\'')
+                    log.error(f'See the log file at {log_file_handler.baseFilename}')
                     raise
                 finally:
                     if log_file_handler:
@@ -106,7 +106,7 @@ class Runner:
         included_instances=asterisk_tuple, excluded_instances=empty_tuple,
     ):
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
-        log.info('Batch cleaning configs: {}'.format(', '.join(config_name for config_name in configs.keys())))
+        log.info(f'Batch cleaning configs: {", ".join(config_name for config_name in configs.keys())}')
 
         for config_name, config in configs.items():
             log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
@@ -118,8 +118,8 @@ class Runner:
                     self.config_dir
                 )
             except Exception:
-                log.exception('An error occurred while cleaning config \'{}\''.format(config_name))
-                log.error('See the log file at {}'.format(log_file_handler.baseFilename))
+                log.exception(f'An error occurred while cleaning config \'{config_name}\'')
+                log.error(f'See the log file at {log_file_handler.baseFilename}')
                 raise
             finally:
                 if log_file_handler:
@@ -201,7 +201,7 @@ class Runner:
             self.config_dir
         )
 
-    def run_mxd_data_sources_report(
+    def run_map_data_sources_report(
         self,
         included_configs=asterisk_tuple, excluded_configs=empty_tuple,
         included_users=asterisk_tuple, excluded_users=empty_tuple,
@@ -215,7 +215,7 @@ class Runner:
         output_format='csv',
         warn_on_validation_errors=False
     ):
-        reporter = MxdDataSourcesReporter(
+        reporter = MapDataSourcesReporter(
             output_dir=self.report_dir,
             output_filename=output_filename,
             output_format=output_format
@@ -253,7 +253,7 @@ class Runner:
             env = user_config['environments'][env_name]
             ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
 
-            log.info('Refreshing tokens for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
+            log.info(f'Refreshing tokens for ArcGIS Server instances: {", ".join(ags_instances)}')
             for ags_instance in ags_instances:
                 ags_instance_props = env['ags_instances'][ags_instance]
                 server_url = ags_instance_props['url']
@@ -291,7 +291,7 @@ class Runner:
                 included_connection_files, excluded_connection_files
             )
             ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
-            log.info('Importing SDE connection files for ArcGIS Server instances: {}'.format(', '.join(ags_instances)))
+            log.info(f'Importing SDE connection files for ArcGIS Server instances: {", ".join(ags_instances)}')
             for ags_instance in ags_instances:
                 ags_instance_props = env['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']

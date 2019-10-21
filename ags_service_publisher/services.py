@@ -1,6 +1,5 @@
 import collections
 import datetime
-import os
 import tempfile
 from copy import deepcopy
 from itertools import chain
@@ -28,6 +27,7 @@ from .datasources import (
 from .extrafilters import superfilter
 from .helpers import asterisk_tuple, empty_tuple
 from .logging_io import setup_logger
+from .publishing import analyze_staging_result
 
 log = setup_logger(__name__)
 
@@ -46,7 +46,7 @@ def generate_service_inventory(
     for env_name in env_names:
         env = user_config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
-        log.info('Listing services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        log.info(f'Listing services on ArcGIS Server instances {", ".join(ags_instances)}')
         for ags_instance in ags_instances:
             ags_instance_props = env['ags_instances'][ags_instance]
             server_url = ags_instance_props['url']
@@ -82,7 +82,7 @@ def analyze_services(
     env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
 
     for env_name in env_names:
-        log.debug('Analyzing services for environment {}'.format(env_name))
+        log.debug(f'Analyzing services for environment {env_name}')
         env = user_config['environments'][env_name]
         for ags_instance in superfilter(env['ags_instances'], included_instances, excluded_instances):
             ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
@@ -147,15 +147,11 @@ def analyze_services(
                                             draft_value=map_
                                         )
                                         map_service_draft.targetServer = ags_connection
+                                        map_service_draft.serverFolder = service_folder
                                         map_service_draft.exportToSDDraft(str(sddraft))
                                         log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
                                         result = arcpy.StageService_server(str(sddraft), str(sd))
-                                        analysis = {}
-                                        for key, severity in (('messages', 0), ('warnings', 1), ('errors', 2)):
-                                            analysis[key] = {}
-                                            for i in range(result.messageCount):
-                                                if result.getSeverity(i) == severity:
-                                                    analysis[key][(result.getMessage(i), 0)] = None
+                                        analysis = analyze_staging_result(result)
                                     elif service_type == 'GeocodeServer':
                                         locator_path = file_path
                                         analysis = arcpy.CreateGeocodeSDDraft(
@@ -168,17 +164,17 @@ def analyze_services(
                                             service_folder
                                         )
                                     else:
-                                        raise RuntimeError('Unsupported service type {}!'.format(service_type))
+                                        raise RuntimeError(f'Unsupported service type {service_type}!')
 
-                                    for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
+                                    for key, log_method in (('warnings', log.warn), ('errors', log.error)):
                                         items = analysis[key]
                                         severity = key[:-1].title()
                                         if items:
                                             log.info('----' + key.upper() + '---')
                                             for ((message, code), layerlist) in items.items():
-                                                code = '{:05d}'.format(code)
-                                                log_method('    {} (CODE {})'.format(message, code))
-                                                code = '="{}"'.format(code)
+                                                code = f'{code:05d}'
+                                                log_method(f'    {message} (CODE {code})')
+                                                code = f'="{code}"'
                                                 issue_props = dict(
                                                     severity=severity,
                                                     code=code,
@@ -198,7 +194,7 @@ def analyze_services(
                                                             workspace_path=layer.workspacePath,
                                                             layer_name=layer_name
                                                         )
-                                                        log_method('           {}'.format(layer_name))
+                                                        log_method(f'           {layer_name}')
                                                         yield dict(chain(
                                                             service_props.items(),
                                                             issue_props.items(),
@@ -206,8 +202,10 @@ def analyze_services(
                                                         ))
 
                                     if analysis['errors']:
-                                        error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
-                                            .format(service_folder, service_name, datetime.datetime.now())
+                                        error_message = (
+                                            f'Analysis failed for service {service_folder}/{service_name} '
+                                            f'at {datetime.datetime.now():%#m/%#d/%y %#I:%M:%S %p}'
+                                        )
                                         log.error(error_message)
                                         raise RuntimeError(error_message, analysis['errors'])
                                 finally:
@@ -215,8 +213,9 @@ def analyze_services(
                                     rmtree(tempdir, ignore_errors=True)
                             except Exception as e:
                                 log.exception(
-                                    'An error occurred while analyzing {} service {}/{} on ArcGIS Server instance {}'
-                                    .format(service_type, service_folder, service_name, ags_instance)
+                                    f'An error occurred while analyzing {service_type} '
+                                    f'service {service_folder}/{service_name} '
+                                    f'on ArcGIS Server instance {ags_instance}'
                                 )
                                 if not warn_on_errors:
                                     raise
@@ -242,7 +241,7 @@ def list_service_layer_fields(
     env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
 
     for env_name in env_names:
-        log.debug('Listing service layers and fields for environment {}'.format(env_name))
+        log.debug(f'Listing service layers and fields for environment {env_name}')
         env = user_config['environments'][env_name]
         for ags_instance in superfilter(env['ags_instances'], included_instances, excluded_instances):
             ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
@@ -316,10 +315,9 @@ def list_service_layer_fields(
                                             try:
                                                 if layer_props['is_broken']:
                                                     raise RuntimeError(
-                                                        'Layer\'s data source is broken (Layer: {}, Data Source: {})'.format(
-                                                            layer_name,
-                                                            getattr(layer, 'dataSource', 'n/a')
-                                                        )
+                                                        f'Layer\'s data source is broken '
+                                                        f'(Layer: {layer_name}, '
+                                                        f'Data Source: {getattr(layer, "dataSource", "n/a")}'
                                                     )
                                                 for field_props in get_layer_fields(layer):
                                                     field_props['needs_index'] = not field_props['has_index'] and (
@@ -385,7 +383,7 @@ def find_service_dataset_usages(
     for env_name in env_names:
         env = user_config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
-        log.info('Finding service dataset usages on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        log.info(f'Finding service dataset usages on ArcGIS Server instances {", ".join(ags_instances)}')
         for ags_instance in ags_instances:
             ags_instance_props = env['ags_instances'][ags_instance]
             server_url = ags_instance_props['url']
@@ -443,7 +441,7 @@ def restart_services(
     for env_name in env_names:
         env = user_config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
-        log.info('Restarting services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        log.info(f'Restarting services on ArcGIS Server instances {", ".join(ags_instances)}')
         for ags_instance in ags_instances:
             ags_instance_props = env['ags_instances'][ags_instance]
             server_url = ags_instance_props['url']
@@ -461,8 +459,9 @@ def restart_services(
                                 configured_state = status.get('configuredState')
                                 if configured_state == 'STARTED':
                                     log.debug(
-                                        'Skipping restart of service {}/{} ({}) because its configured state is {} and include_running_services is {}'
-                                        .format(service_folder, service_name, service_type, configured_state, include_running_services)
+                                        f'Skipping restart of service {service_folder}/{service_name} ({service_type}) '
+                                        f'because its configured state is {configured_state} and '
+                                        f'include_running_services is {include_running_services}'
                                     )
                                     continue
                                 restart_service(server_url, token, service_name, service_folder, service_type, delay, max_retries, test_after_restart, session=session)
@@ -484,7 +483,7 @@ def test_services(
     for env_name in env_names:
         env = user_config['environments'][env_name]
         ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
-        log.info('Testing services on ArcGIS Server instances {}'.format(', '.join(ags_instances)))
+        log.info(f'Testing services on ArcGIS Server instances {", ".join(ags_instances)}')
         for ags_instance in ags_instances:
             ags_instance_props = env['ags_instances'][ags_instance]
             server_url = ags_instance_props['url']
@@ -519,22 +518,20 @@ def normalize_service(service, default_service_properties=None, env_service_prop
     merged_service_properties = deepcopy(default_service_properties) if default_service_properties else {}
     if env_service_properties:
         log.debug(
-            'Overriding default service properties with environment-level properties for service {}'
-            .format(service_name)
+            f'Overriding default service properties with environment-level properties for service {service_name}'
         )
         merged_service_properties.update(env_service_properties)
     if is_mapping:
         service_properties = service.get(service_name)
         if service_properties:
-            log.debug('Overriding default service properties with service-level properties for service {}'.format(service_name))
+            log.debug(f'Overriding default service properties with service-level properties for service {service_name}')
             merged_service_properties.update(service_properties)
         else:
             log.warn(
-                'No service-level properties specified for service {} even though it was specified as a mapping'
-                .format(service_name)
+                f'No service-level properties specified for service {service_name} even though it was specified as a mapping'
             )
     else:
-        log.debug('No service-level properties specified for service {}'.format(service_name))
+        log.debug(f'No service-level properties specified for service {service_name}')
     service_type = merged_service_properties.get('service_type', 'MapServer')
     return service_name, service_type, merged_service_properties
 
@@ -589,11 +586,8 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
                 errors.append(f'- No staging file found for service {service_name}')
             elif len(staging_files) > 1:
                 errors.append(
-                    '- More than one staging file found for service {}: \n{}'
-                    .format(
-                        service_name,
-                        '\n'.join('  - {}'.format(staging_file) for staging_file in staging_files)
-                    )
+                    f'- More than one staging file found for service {service_name}: \n'
+                    f'{chr(10).join("  - {}".format(staging_file) for staging_file in staging_files)}'
                 )
 
         if source_dir:

@@ -1,6 +1,7 @@
 import datetime
 import multiprocessing
-import os
+import json
+import re
 import tempfile
 from pathlib import Path
 from shutil import copyfile, rmtree
@@ -36,7 +37,7 @@ def publish_config(
     if len(env_names) == 0:
         raise RuntimeError('No publishable environments specified!')
 
-    log.info('Publishing environments: {}'.format(', '.join(env_names)))
+    log.info(f'Publishing environments: {", ".join(env_names)}')
     user_config = get_config('userconfig', config_dir)
     for env_name in env_names:
         env = config['environments'][env_name]
@@ -58,7 +59,7 @@ def publish_config(
             ):
                 yield result
         else:
-            log.warn('No publishable instances specified for environment {}'.format(env_name))
+            log.warn(f'No publishable instances specified for environment {env_name}')
 
 
 def publish_config_name(
@@ -76,7 +77,7 @@ def publish_config_name(
     create_backups=True
 ):
     config = get_config(config_name, config_dir)
-    log.info('Publishing config \'{}\''.format(config_name))
+    log.info(f'Publishing config {config_name}')
     for result in publish_config(
         config,
         config_dir,
@@ -129,8 +130,8 @@ def publish_env(
         raise RuntimeError('No publishable services specified!')
 
     log.info(
-        'Publishing environment: {}, service folder: {}, ArcGIS Server instances: {}'
-        .format(env_name, service_folder, ', '.join(ags_instances))
+        f'Publishing environment: {env_name}, service folder: {service_folder}, '
+        f'ArcGIS Server instances: {", ".join(ags_instances)}'
     )
 
     source_info, errors = get_source_info(
@@ -141,8 +142,11 @@ def publish_env(
         env_service_properties
     )
     if len(errors) > 0:
-        message = 'One or more errors occurred while validating the {} environment for service folder {}:\n{}' \
-            .format(env_name, service_folder, '\n'.join(errors))
+        message = (
+            f'One or more errors occurred while validating the {env_name} environment '
+            f'for service folder {service_folder}:\n'
+            f'{chr(10).join(errors)}'
+        )
         if warn_on_validation_errors:
             log.warn(message)
         else:
@@ -227,7 +231,7 @@ def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
                     if current_site_mode != 'EDITABLE':
                         set_site_mode(server_url, token, 'EDITABLE', session=session)
                 else:
-                    log.warn('Unrecognized site mode {}'.format(site_mode))
+                    log.warn(f'Unrecognized site mode {site_mode}')
 
 
 def publish_services(
@@ -248,6 +252,7 @@ def publish_services(
     warn_on_publishing_errors=False,
     create_backups=True
 ):
+    source_dir = Path(source_dir)
     for (
         service_name,
         service_type,
@@ -261,49 +266,44 @@ def publish_services(
         file_path = service_info['source_file']
         with open_queue() as log_queue:
             if create_backups:
-                backup_dir = os.path.join(source_dir, 'Backup')
-                if not os.path.isdir(backup_dir):
-                    log.warn('Creating backup directory {}'.format(backup_dir))
-                    os.makedirs(backup_dir)
+                backup_dir = source_dir / 'Backup'
+                if not backup_dir.is_dir():
+                    log.warn(f'Creating backup directory {backup_dir}')
+                    backup_dir.mkdir(parents=True)
+                timestamp = datetime.datetime.now()
                 if service_type == 'MapServer':
-                    source_mxd_path = file_path
-                    if not source_mxd_path:
-                        file_path = source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
-                    backup_file_name = '{}_{:%Y%m%d_%H%M%S}.mxd'.format(service_name, datetime.datetime.now())
-                    backup_file_path = os.path.join(backup_dir, backup_file_name)
-                    log.info('Backing up source MXD {} to {}'.format(source_mxd_path, backup_file_path))
-                    copyfile(source_mxd_path, backup_file_path)
+                    source_file_path = file_path
+                    backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.{source_file_path.suffix}'
+                    log.info(f'Backing up source file {source_file_path} to {backup_file_path}')
+                    copyfile(source_file_path, backup_file_path)
                 if service_type == 'GeocodeServer':
                     source_locator_path = file_path
-                    backup_file_name = '{}_{:%Y%m%d_%H%M%S}.loc'.format(service_name, datetime.datetime.now())
-                    backup_file_path = os.path.join(backup_dir, backup_file_name)
-                    log.info('Backing up source locator file {} to {}'.format(source_locator_path, backup_file_path))
+                    backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.loc'
+                    log.info(f'Backing up source locator file {source_locator_path} to {backup_file_path}')
                     copyfile(source_locator_path, backup_file_path)
-                    copyfile(source_locator_path + '.xml', backup_file_path + '.xml')
-                    source_locator_lox_path = os.path.splitext(source_locator_path)[0] + '.lox'
-                    if os.path.isfile(source_locator_lox_path):
-                        copyfile(source_locator_lox_path, os.path.splitext(backup_file_path)[0] + '.lox')
+                    copyfile(f'{source_locator_path.xml}', f'{backup_file_path}.xml')
+                    source_locator_lox_path = source_locator_path.parent / f'{source_locator_path.stem}.lox'
+                    if source_locator_lox_path.is_file():
+                        copyfile(source_locator_lox_path, backup_file_path.parent / f'{backup_file_path.stem}.lox')
             if copy_source_files_from_staging_folder:
                 if service_type == 'MapServer':
-                    source_mxd_path = file_path
-                    if not source_mxd_path:
-                        file_path = source_mxd_path = os.path.join(source_dir, service_name + '.mxd')
+                    source_file_path = file_path
                     if staging_dir:
-                        staging_mxd_path = service_info['staging_files'][0]
-                        log.info('Copying staging MXD {} to {}'.format(staging_mxd_path, source_mxd_path))
-                        if not os.path.isdir(source_dir):
-                            log.warn('Creating source directory {}'.format(source_dir))
-                            os.makedirs(source_dir)
-                        copyfile(staging_mxd_path, source_mxd_path)
-                    if not os.path.isfile(source_mxd_path):
-                        raise RuntimeError('Source MXD {} does not exist!'.format(source_mxd_path))
+                        staging_file_path = service_info['staging_files'][0]
+                        log.info(f'Copying staging file {staging_file_path} to {source_file_path}')
+                        if not source_dir.is_dir():
+                            log.warn(f'Creating source directory {source_dir}')
+                            source_dir.mkdir(parents=True)
+                        copyfile(staging_file_path, source_file_path)
+                    if not source_file_path.is_file():
+                        raise RuntimeError(f'Source file {source_file_path} does not exist!')
                     if data_source_mappings:
                         proc = multiprocessing.Process(
                             target=logged_call,
                             args=(
                                 log_queue,
                                 update_data_sources,
-                                source_mxd_path,
+                                source_file_path,
                                 data_source_mappings
                             )
                         )
@@ -311,30 +311,29 @@ def publish_services(
                         proc.join()
                         if proc.exitcode != 0:
                             raise RuntimeError(
-                                'An error occurred in subprocess {} (pid {}) while updating data sources for MXD {}'
-                                .format(proc.name, proc.pid, source_mxd_path)
+                                f'An error occurred in subprocess {proc.name} (pid {proc.pid}) '
+                                f'while updating data sources for file {source_file_path}'
                             )
                         del proc
                 if service_type == 'GeocodeServer':
                     source_locator_path = file_path
                     if staging_dir:
                         staging_locator_path = service_info['staging_files'][0]
-                        log.info('Copying staging locator file {} to {}'.format(staging_locator_path, source_locator_path))
-                        if not os.path.isdir(source_dir):
-                            log.warn('Creating source directory {}'.format(source_dir))
-                            os.makedirs(source_dir)
+                        log.info(f'Copying staging locator file {staging_locator_path} to {source_locator_path}')
+                        if not source_dir.is_dir():
+                            log.warn(f'Creating source directory {source_dir}')
+                            source_dir.mkdir(parents=True)
                         copyfile(staging_locator_path, source_locator_path)
-                        copyfile(staging_locator_path + '.xml', source_locator_path + '.xml')
-                        staging_locator_lox_path = os.path.splitext(staging_locator_path)[0] + '.lox'
-                        if os.path.isfile(staging_locator_lox_path):
-                            copyfile(staging_locator_lox_path, os.path.splitext(source_locator_path)[0] + '.lox')
-                    if not os.path.isfile(source_locator_path):
-                        raise RuntimeError('Source locator file {} does not exist!'.format(source_locator_path))
+                        copyfile(f'{staging_locator_path}.xml', f'{source_locator_path}.xml')
+                        staging_locator_lox_path = staging_locator_path.parent / f'{staging_locator_path.stem}.lox'
+                        if staging_locator_lox_path.is_file():
+                            copyfile(staging_locator_lox_path, source_locator_path.parent / f'{source_locator_path.stem}.lox')
+                    if not source_locator_path.is_file():
+                        raise RuntimeError(f'Source locator file {source_locator_path} does not exist!')
                     if data_source_mappings:
                         log.warn(
-                            'Data source mappings specified but are not supported with GeocodeServer services, skipping '
-                            'service {}.'
-                            .format(service_name)
+                            f'Data source mappings specified but are not supported with GeocodeServer services, skipping '
+                            f'service {service_name}.'
                         )
             else:
                 log.debug('Will skip copying source files from staging folder.')
@@ -371,16 +370,10 @@ def publish_services(
                 error_message = None
                 if proc.exitcode != 0:
                     succeeded = False
-                    error_message = 'An error occurred in subprocess {} (pid {}, exitcode {}) ' \
-                        'while publishing service {}/{} to AGS instance {}' \
-                        .format(
-                            proc.name,
-                            proc.pid,
-                            proc.exitcode,
-                            service_folder,
-                            service_name,
-                            ags_instance
-                        )
+                    error_message = (
+                        f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
+                        f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
+                    )
                     errors.append(error_message)
                 else:
                     succeeded = True
@@ -397,8 +390,7 @@ def publish_services(
                 )
             if len(errors) > 0 and not warn_on_publishing_errors:
                 log.error(
-                    'One or more errors occurred while publishing service {}/{}, aborting.'
-                    .format(service_folder, service_name)
+                    f'One or more errors occurred while publishing service {service_folder}/{service_name}, aborting.'
                 )
                 raise RuntimeError(errors)
 
@@ -430,11 +422,10 @@ def publish_service(
     try:
         sddraft = tempdir / f'{service_name}.sddraft'
         sd = tempdir / f'{service_name}.sd'
-
         if service_type == 'MapServer':
-            file_path = Path(source_dir) / f'{original_service_name}.mxd'
+            file_path = Path(source_dir) / f'{original_service_name}.aprx'
             if not file_path.exists():
-                file_path = Path(source_dir) / f'{original_service_name}.aprx'
+                file_path = Path(source_dir) / f'{original_service_name}.mxd'
                 if not file_path.exists():
                     raise RuntimeError(f'No MXD or ArcGIS Pro project file found for service {service_name} in {source_dir}')
             if file_path.suffix.lower() == '.aprx':
@@ -453,26 +444,22 @@ def publish_service(
                 draft_value=map_
             )
             map_service_draft.targetServer = ags_connection
+            map_service_draft.serverFolder = service_folder
             log.debug(f'Creating SDDraft file: {sddraft}')
             map_service_draft.exportToSDDraft(str(sddraft))
             modify_sddraft(str(sddraft), service_properties)
             log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
             result = arcpy.StageService_server(str(sddraft), str(sd))
-            analysis = {}
-            for key, severity in (('messages', 0), ('warnings', 1), ('errors', 2)):
-                analysis[key] = {}
-                for i in range(result.messageCount):
-                    if result.getSeverity(i) == severity:
-                        analysis[key][(result.getMessage(i), 0)] = None
+            analysis = analyze_staging_result(result)
 
         elif service_type == 'GeocodeServer':
-            locator_path = os.path.join(source_dir, original_service_name)
+            locator_path = source_dir / original_service_name
             if service_properties.get('rebuild_locators'):
-                log.info('Rebuilding locator {}'.format(locator_path))
-                arcpy.RebuildAddressLocator_geocoding(locator_path)
+                log.info(f'Rebuilding locator {locator_path}')
+                arcpy.RebuildAddressLocator_geocoding(str(locator_path))
             analysis = arcpy.CreateGeocodeSDDraft(
-                locator_path,
-                sddraft,
+                str(locator_path),
+                str(sddraft),
                 service_name,
                 'FROM_CONNECTION_FILE',
                 ags_connection,
@@ -480,43 +467,42 @@ def publish_service(
                 service_folder
             )
             modify_sddraft(sddraft, service_properties)
-
         else:
-            raise RuntimeError('Unsupported service type {}!'.format(service_type))
-
-        for key, log_method in (('messages', log.info), ('warnings', log.warn), ('errors', log.error)):
+            raise RuntimeError(f'Unsupported service type {service_type}!')
+        for key, log_method in (('warnings', log.warn), ('errors', log.error)):
             log.info('----' + key.upper() + '---')
             items = analysis[key]
             for ((message, code), layerlist) in items.items():
-                log_method('    {} (CODE {:05d})'.format(message, code))
+                log_method(f'    {message} (CODE {code:05d})')
                 if layerlist:
                     log_method('       applies to:')
                     for layer in layerlist:
-                        log_method('           {}'.format(layer.longName if hasattr(layer, 'longName') else layer.name))
-
+                        log_method(f'           {layer if isinstance(layer, str) else (layer.longName if hasattr(layer, "longName") else layer.name)}')
         if analysis['errors'] == {}:
             if not sd.is_file():
                 log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
                 arcpy.StageService_server(str(sddraft), str(sd))
-            log.debug('Uploading SD file: {} to AGS connection file: {}'.format(sd, ags_connection))
+            log.debug(f'Uploading SD file: {sd} to AGS connection file: {ags_connection}')
             arcpy.UploadServiceDefinition_server(str(sd), ags_connection)
             log.info(
-                'Service {}/{} successfully published to {} at {:%#m/%#d/%y %#I:%M:%S %p}'
-                .format(service_folder, service_name, ags_instance, datetime.datetime.now())
+                f'Service {service_folder}/{service_name} successfully published to '
+                f'{ags_instance} at {datetime.datetime.now():%#m/%#d/%y %#I:%M:%S %p}'
             )
         else:
-            error_message = 'Analysis failed for service {}/{} at {:%#m/%#d/%y %#I:%M:%S %p}' \
-                .format(service_folder, service_name, datetime.datetime.now())
+            error_message = (
+                f'Analysis failed for service {service_folder}/{service_name} '
+                f'at {datetime.datetime.now():%#m/%#d/%y %#I:%M:%S %p}'
+            )
             log.error(error_message)
             raise RuntimeError(error_message, analysis['errors'])
     except Exception:
         log.exception(
-            'An error occurred while publishing service {}/{} to ArcGIS Server instance {}'
-            .format(service_folder, service_name, ags_instance)
+            f'An error occurred while publishing service {service_folder}/{service_name} '
+            f'to ArcGIS Server instance {ags_instance}'
         )
         raise
     finally:
-        log.debug('Cleaning up temporary directory: {}'.format(tempdir))
+        log.debug(f'Cleaning up temporary directory: {tempdir}')
         rmtree(tempdir, ignore_errors=True)
 
 
@@ -530,9 +516,27 @@ def cleanup_config(
     if len(env_names) == 0:
         raise RuntimeError('No cleanable environments specified!')
 
-    log.info('Cleaning environments: {}'.format(', '.join(env_names)))
+    log.info(f'Cleaning environments: {", ".join(env_names)}')
     for env_name in env_names:
         cleanup_env(config, env_name, included_instances, excluded_instances, config_dir)
+
+
+def analyze_staging_result(result):
+    analysis = {}
+    pattern = re.compile(r'^(?:WARNING|ERROR) (?:002893|001272): Analyzer (?:warnings|errors) were encountered \((.+)\)\.$')
+    for key, severity in (('warnings', 1), ('errors', 2)):
+        analysis[key] = {}
+        for i in range(result.messageCount):
+            if result.getSeverity(i) == severity:
+                message = result.getMessage(i)
+                match = pattern.fullmatch(message)
+                if match:
+                    group = match.group(1)
+                    if group:
+                        parsed_analyze_messages = json.loads(group)
+                        for parsed_analyze_message in parsed_analyze_messages:
+                            analysis[key][(parsed_analyze_message['message'], int(parsed_analyze_message['code']))] = [parsed_analyze_message.get('object')]
+    return analysis
 
 
 def cleanup_env(
@@ -559,8 +563,7 @@ def cleanup_instance(
     configured_services = config['services']
     service_folder = config.get('service_folder')
     log.info(
-        'Cleaning up unused services on environment {}, ArcGIS Server instance {}, service folder {}'
-        .format(env_name, ags_instance, service_folder)
+        f'Cleaning up unused services on environment {env_name}, ArcGIS Server instance {ags_instance}, service folder {service_folder}'
     )
     ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
     server_url = ags_instance_props['url']
@@ -570,11 +573,8 @@ def cleanup_instance(
         existing_services = list_services(server_url, token, service_folder, session=session)
         services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
         log.info(
-            'Removing {} services: {}'
-            .format(
-                len(services_to_remove),
-                ', '.join((service['serviceName'] for service in services_to_remove))
-            )
+            f'Removing {len(services_to_remove)} services: '
+            f'{", ".join((service["serviceName"] for service in services_to_remove))}'
         )
         for service in services_to_remove:
             delete_service(server_url, token, service['serviceName'], service_folder, service['type'], session=session)

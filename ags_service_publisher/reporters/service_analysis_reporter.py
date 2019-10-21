@@ -23,7 +23,6 @@ class ServiceAnalysisReporter(BaseReporter):
         ('message', 'Message'),
         ('layer_name', 'Layer Name'),
         ('dataset_name', 'Dataset Name'),
-        ('workspace_path', 'Workspace Path')
     ))
 
     record_class_name = 'ServiceAnalysisRecord'

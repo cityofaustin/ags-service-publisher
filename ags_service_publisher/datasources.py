@@ -9,12 +9,12 @@ log = setup_logger(__name__)
 
 
 def list_mxds_in_folder(mxd_dir):
-    log.debug('Listing MXDs in folder: {}'.format(mxd_dir))
+    log.debug(f'Listing MXDs in folder: {mxd_dir}')
     return list_files_in_dir(mxd_dir, ext='.mxd')
 
 
 def list_sde_connection_files_in_folder(sde_connections_dir):
-    log.debug('Listing SDE connection files in folder: {}'.format(sde_connections_dir))
+    log.debug(f'Listing SDE connection files in folder: {sde_connections_dir}')
     return list_files_in_dir(sde_connections_dir, ext='.sde')
 
 
@@ -59,7 +59,7 @@ def list_layers_in_map(map_, include_table_views=True):
 
 
 def get_aprx_data_sources(aprx_path, include_table_views=True):
-    log.debug('Getting data sources for ArcGIS Pro project file: {}'.format(aprx_path))
+    log.debug(f'Getting data sources for ArcGIS Pro project file: {aprx_path}')
 
     for layer in list_layers_in_map(open_aprx(aprx_path).listMaps()[0], include_table_views):
         if hasattr(layer, 'dataSource'):
@@ -189,7 +189,7 @@ def parse_database_from_service_string(database):
 
 
 def update_data_sources(aprx_path, data_source_mappings):
-    log.info('Updating data sources in ArcGIS Pro project file: {}'.format(aprx_path))
+    log.info(f'Updating data sources in ArcGIS Pro project file: {aprx_path}')
 
     aprx = open_aprx(aprx_path)
     for layer in list_layers_in_map(aprx.listMaps()[0]):
@@ -214,7 +214,7 @@ def update_data_sources(aprx_path, data_source_mappings):
 
 
 def get_geometry_statistics(dataset_path):
-    log.debug('Getting geometry statistics for dataset: {}'.format(dataset_path))
+    log.debug(f'Getting geometry statistics for dataset: {dataset_path}')
 
     import arcpy
     desc = arcpy.Describe(dataset_path)

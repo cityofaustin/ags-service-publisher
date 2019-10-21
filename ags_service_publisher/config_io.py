@@ -16,7 +16,7 @@ default_config_dir = os.getenv(
 
 
 def get_config(config_name, config_dir=default_config_dir):
-    log.debug('Getting config \'{}\' in directory: {}'.format(config_name, config_dir))
+    log.debug(f'Getting config \'{config_name}\' in directory: {config_dir}')
     return read_config_from_file(get_config_file_path(config_name, config_dir))
 
 
@@ -25,7 +25,7 @@ def get_configs(
     config_dir=default_config_dir
 ):
     if len(included_configs) == 1 and included_configs[0] == '*':
-        log.debug('No config names specified, reading all configs in directory: {}'.format(config_dir))
+        log.debug(f'No config names specified, reading all configs in directory: {config_dir}')
         config_names = [
             os.path.splitext(os.path.basename(config_file))[0] for
             config_file in
@@ -34,12 +34,12 @@ def get_configs(
     else:
         config_names = included_configs
     config_names = superfilter(config_names, included_configs, excluded_configs)
-    log.debug('Getting configs \'{}\' in directory: {}'.format(', '.join(config_names), config_dir))
+    log.debug(f'Getting configs \'{", ".join(config_names)}\' in directory: {config_dir}')
     return OrderedDict(((config_name, get_config(config_name, config_dir)) for config_name in config_names))
 
 
 def set_config(config, config_name, config_dir=default_config_dir):
-    log.debug('Setting config \'{}\' in directory: {}'.format(config_name, config_dir))
+    log.debug(f'Setting config \'{config_name}\' in directory: {config_dir}')
     return write_config_to_file(config, get_config_file_path(config_name, config_dir))
 
 
@@ -76,13 +76,13 @@ def get_config_file_path(config_name, config_dir=default_config_dir):
 
 
 def read_config_from_file(file_path):
-    log.debug('Reading config from file: {}'.format(file_path))
+    log.debug(f'Reading config from file: {file_path}')
     with open(file_path) as f:
         config = ordered_load(f)
         return config
 
 
 def write_config_to_file(config, file_path):
-    log.debug('Writing config to file: {}'.format(file_path))
+    log.debug(f'Writing config to file: {file_path}')
     with open(file_path, 'w') as f:
         ordered_dump(config, f, default_flow_style=False, width=float('inf'))
