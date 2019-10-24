@@ -1,6 +1,7 @@
 import os
 import getpass
 import json
+import re
 import time
 from ssl import create_default_context
 from urllib3.poolmanager import PoolManager
@@ -10,7 +11,6 @@ import requests
 from requests.compat import urljoin
 from requests.adapters import HTTPAdapter
 
-from .datasources import parse_database_from_service_string
 from .helpers import split_quoted_string, unquote_string
 from .logging_io import setup_logger
 
@@ -628,6 +628,15 @@ def parse_connection_string(conn_string):
     return properties
 
 
+def parse_database_from_service_string(database):
+    if database != 'n/a':
+        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:\\;\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
+        match = re.match(pattern, database)
+        if match:
+            database = match.group(1)
+    return database
+
+
 def prompt_for_credentials(username=None, password=None, ags_instance=None):
     if not username:
         username = input(
@@ -673,6 +682,24 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
                 .format(sde_connection_file, ags_connection_file)
             )
             raise
+
+
+def analyze_staging_result(result):
+    analysis = {}
+    pattern = re.compile(r'^(?:WARNING|ERROR) (?:002893|001272): Analyzer (?:warnings|errors) were encountered \((.+)\)\.$')
+    for key, severity in (('warnings', 1), ('errors', 2)):
+        analysis[key] = {}
+        for i in range(result.messageCount):
+            if result.getSeverity(i) == severity:
+                message = result.getMessage(i)
+                match = pattern.fullmatch(message)
+                if match:
+                    group = match.group(1)
+                    if group:
+                        parsed_analyze_messages = json.loads(group)
+                        for parsed_analyze_message in parsed_analyze_messages:
+                            analysis[key][(parsed_analyze_message['message'], int(parsed_analyze_message['code']))] = [parsed_analyze_message.get('object')]
+    return analysis
 
 
 # Adapted from https://stackoverflow.com/a/50215614

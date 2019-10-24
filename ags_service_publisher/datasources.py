@@ -1,4 +1,3 @@
-import re
 import fnmatch
 from pathlib import Path
 
@@ -67,7 +66,7 @@ def get_aprx_data_sources(aprx_path, include_table_views=True):
 
 
 def get_layer_properties(layer):
-    layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+    layer_name = getattr(layer, 'longName', layer.name)
     log.debug(f'Getting properties for layer: {layer_name}')
 
     if hasattr(layer, 'dataSource'):
@@ -179,36 +178,28 @@ def find_field_in_label_classes(layer, field):
     )
 
 
-def parse_database_from_service_string(database):
-    if database != 'n/a':
-        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:\\;\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
-        match = re.match(pattern, database)
-        if match:
-            database = match.group(1)
-    return database
-
-
 def update_data_sources(aprx_path, data_source_mappings):
     log.info(f'Updating data sources in ArcGIS Pro project file: {aprx_path}')
 
     aprx = open_aprx(aprx_path)
-    for layer in list_layers_in_map(aprx.listMaps()[0]):
-        if hasattr(layer, 'workspacePath'):
-            layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
+    map_ = aprx.listMaps()[0]
+    for layer in list_layers_in_map(map_):
+        if hasattr(layer, 'connectionProperties'):
+            layer_name = getattr(layer, 'longName', layer.name)
+            dataset_name = deep_get(layer, 'connectionProperties.dataset')
+            current_database = deep_get(layer, 'connectionProperties.connection_info.server')
             for key, value in data_source_mappings.items():
-                if fnmatch.fnmatch(layer.workspacePath, key):
-                    new_workspace_path = value
+                if fnmatch.fnmatch(current_database, key):
+                    new_database = value
                     log.info(
-                        'Updating workspace path for layer {}, dataset name: {}, '
-                        'current workspace path: {}, new workspace path: {}'
-                        .format(layer_name, layer.datasetName, layer.workspacePath, new_workspace_path)
+                        f'Updating connection properties for layer {layer_name}, dataset name: {dataset_name}, '
+                        f'current database: {current_database}, new database: {new_database}'
                     )
-                    layer.findAndReplaceWorkspacePath(layer.workspacePath, new_workspace_path, False)
+                    update_layer_sde_connection(map_, layer, new_database)
                     break
             else:
                 log.warn(
-                    'No match for layer {}, dataset name: {}, workspace path: {}'
-                    .format(layer_name, layer.datasetName, layer.workspacePath)
+                    f'No match for layer {layer_name}, dataset name: {dataset_name}, database: {current_database}'
                 )
     aprx.save()
 
@@ -249,3 +240,24 @@ def get_geometry_statistics(dataset_path):
         avg_part_count=avg_part_count,
         avg_vertex_count=avg_vertex_count
     )
+
+
+def update_layer_sde_connection(map_, layer, sde_connection_file):
+    '''
+    Workaround for Esri BUG-000112574 (https://support.esri.com/en/bugs/nimbus/QlVHLTAwMDExMjU3NA==)
+    '''
+    dataset_name = deep_get(layer, 'connectionProperties.dataset')
+    dummy_layer = map_.addDataFromPath(str(Path(sde_connection_file) / dataset_name))
+    cim = layer.getDefinition('V2')
+    dummy_cim = dummy_layer.getDefinition('V2')
+    current_connection_string = cim.featureTable.dataConnection.workspaceConnectionString
+    new_connection_string = dummy_cim.featureTable.dataConnection.workspaceConnectionString
+
+    log.debug(
+        f'Updating connection properties for layer {layer.name}, dataset name: {dataset_name}, '
+        f'current connection string: \n{current_connection_string}, new connection string: \n{new_connection_string}'
+    )
+
+    cim.featureTable.dataConnection.workspaceConnectionString = new_connection_string
+    layer.setDefinition(cim)
+    map_.removeLayer(dummy_layer)

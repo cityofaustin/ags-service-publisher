@@ -1,12 +1,17 @@
 import datetime
 import multiprocessing
-import json
-import re
 import tempfile
 from pathlib import Path
 from shutil import copyfile, rmtree
 
-from .ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
+from .ags_utils import (
+    analyze_staging_result,
+    create_session,
+    delete_service,
+    get_site_mode,
+    list_services,
+    set_site_mode,
+)
 from .config_io import get_config, default_config_dir
 from .datasources import update_data_sources, convert_mxd_to_aprx, open_aprx
 from .extrafilters import superfilter
@@ -272,12 +277,12 @@ def publish_services(
                     backup_dir.mkdir(parents=True)
                 timestamp = datetime.datetime.now()
                 if service_type == 'MapServer':
-                    source_file_path = file_path
-                    backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.{source_file_path.suffix}'
+                    source_file_path = Path(file_path)
+                    backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}{source_file_path.suffix}'
                     log.info(f'Backing up source file {source_file_path} to {backup_file_path}')
                     copyfile(source_file_path, backup_file_path)
                 if service_type == 'GeocodeServer':
-                    source_locator_path = file_path
+                    source_locator_path = Path(file_path)
                     backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.loc'
                     log.info(f'Backing up source locator file {source_locator_path} to {backup_file_path}')
                     copyfile(source_locator_path, backup_file_path)
@@ -287,14 +292,18 @@ def publish_services(
                         copyfile(source_locator_lox_path, backup_file_path.parent / f'{backup_file_path.stem}.lox')
             if copy_source_files_from_staging_folder:
                 if service_type == 'MapServer':
-                    source_file_path = file_path
+                    source_file_path = Path(file_path)
                     if staging_dir:
-                        staging_file_path = service_info['staging_files'][0]
+                        staging_file_path = Path(service_info['staging_files'][0])
                         log.info(f'Copying staging file {staging_file_path} to {source_file_path}')
                         if not source_dir.is_dir():
                             log.warn(f'Creating source directory {source_dir}')
                             source_dir.mkdir(parents=True)
-                        copyfile(staging_file_path, source_file_path)
+                        if staging_file_path.suffix.lower() == '.mxd':
+                            source_file_path = source_file_path.parent / f'{source_file_path.stem}.aprx'
+                            convert_mxd_to_aprx(staging_file_path, source_file_path)
+                        else:
+                            copyfile(staging_file_path, source_file_path)
                     if not source_file_path.is_file():
                         raise RuntimeError(f'Source file {source_file_path} does not exist!')
                     if data_source_mappings:
@@ -477,7 +486,7 @@ def publish_service(
                 if layerlist:
                     log_method('       applies to:')
                     for layer in layerlist:
-                        log_method(f'           {layer if isinstance(layer, str) else (layer.longName if hasattr(layer, "longName") else layer.name)}')
+                        log_method(f'           {layer if isinstance(layer, str) else getattr(layer, "longName", layer.name)}')
         if analysis['errors'] == {}:
             if not sd.is_file():
                 log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
@@ -519,24 +528,6 @@ def cleanup_config(
     log.info(f'Cleaning environments: {", ".join(env_names)}')
     for env_name in env_names:
         cleanup_env(config, env_name, included_instances, excluded_instances, config_dir)
-
-
-def analyze_staging_result(result):
-    analysis = {}
-    pattern = re.compile(r'^(?:WARNING|ERROR) (?:002893|001272): Analyzer (?:warnings|errors) were encountered \((.+)\)\.$')
-    for key, severity in (('warnings', 1), ('errors', 2)):
-        analysis[key] = {}
-        for i in range(result.messageCount):
-            if result.getSeverity(i) == severity:
-                message = result.getMessage(i)
-                match = pattern.fullmatch(message)
-                if match:
-                    group = match.group(1)
-                    if group:
-                        parsed_analyze_messages = json.loads(group)
-                        for parsed_analyze_message in parsed_analyze_messages:
-                            analysis[key][(parsed_analyze_message['message'], int(parsed_analyze_message['code']))] = [parsed_analyze_message.get('object')]
-    return analysis
 
 
 def cleanup_env(

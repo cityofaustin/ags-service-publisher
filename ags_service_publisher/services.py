@@ -7,6 +7,7 @@ from pathlib import Path
 from shutil import rmtree
 
 from .ags_utils import (
+    analyze_staging_result,
     create_session,
     get_service_manifest,
     get_service_status,
@@ -27,7 +28,6 @@ from .datasources import (
 from .extrafilters import superfilter
 from .helpers import asterisk_tuple, empty_tuple
 from .logging_io import setup_logger
-from .publishing import analyze_staging_result
 
 log = setup_logger(__name__)
 
