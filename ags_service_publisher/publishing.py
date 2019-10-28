@@ -286,7 +286,7 @@ def publish_services(
                     backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.loc'
                     log.info(f'Backing up source locator file {source_locator_path} to {backup_file_path}')
                     copyfile(source_locator_path, backup_file_path)
-                    copyfile(f'{source_locator_path.xml}', f'{backup_file_path}.xml')
+                    copyfile(f'{source_locator_path}.xml', f'{backup_file_path}.xml')
                     source_locator_lox_path = source_locator_path.parent / f'{source_locator_path.stem}.lox'
                     if source_locator_lox_path.is_file():
                         copyfile(source_locator_lox_path, backup_file_path.parent / f'{backup_file_path.stem}.lox')
@@ -325,9 +325,9 @@ def publish_services(
                             )
                         del proc
                 if service_type == 'GeocodeServer':
-                    source_locator_path = file_path
+                    source_locator_path = Path(file_path)
                     if staging_dir:
-                        staging_locator_path = service_info['staging_files'][0]
+                        staging_locator_path = Path(service_info['staging_files'][0])
                         log.info(f'Copying staging locator file {staging_locator_path} to {source_locator_path}')
                         if not source_dir.is_dir():
                             log.warn(f'Creating source directory {source_dir}')
