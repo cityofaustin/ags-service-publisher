@@ -1,10 +1,10 @@
 # ArcGIS Server Service Publisher
 
-**Note:** See the [`ags-service-publisher-gui`](https://github.com/cityofaustin/ags-service-publisher-gui) repository if you are looking for a simple, user-friendly GUI application for working with AGS services! This repository contains the library code that the GUI application depends on.
+**Note:** This is the development branch for the Python 3.x-compatible version of this project. As such many things may be broken or not documented yet.
 
 ## Overview
 
-The primary purpose of this tool is to automate the publishing of MXD files to Map Services on ArcGIS Server, using
+The primary purpose of this tool is to automate the publishing of ArcGIS Pro projects to Map Services on ArcGIS Server, using
 [YAML][1] configuration files to define the service folders, environments, services, 
 [service properties](#service-properties), data source mappings and more. Publishing geocoding services is also
 supported, with some limitations (e.g. no data source mapping).
@@ -21,13 +21,13 @@ of your ArcGIS Server instances.
 
 ## Requirements
 
-- Windows 7+
-- ArcGIS Desktop 10.3+
-- Python 2.7+
-- [pip][2]
+- Windows 10+
+- ArcGIS Pro 2.4+
+- Python 3.6+
+- [pip 19.3+][2]
 - Various Python libraries (will be installed by pip as described in the [Installation](#installation) section):
-    - [PyYAML][3] 3.12
-    - [requests][4] 2.13
+    - [PyYAML][3] 5.12
+    - [requests][4] 2.22
 
 ## Installation
 
@@ -500,6 +500,7 @@ See the [example configuration files](#example-configuration-files) section for 
 
 ## Tips
 
+- ArcGIS Pro project (`.aprx`) files will be used preferentially over MXD files, but MXD files will be automatically converted to ArcGIS Pro projects if necessary.
 - You can use [`fnmatch`][8]-style wildcards in any of the strings in the list arguments to the runner functions, so,
     for example, you could put `included_services=['CouncilDistrict*']` and both the `CouncilDistrictMap` and
     `CouncilDistrictsFill` services would be published.
