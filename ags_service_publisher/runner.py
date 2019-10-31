@@ -23,7 +23,7 @@ from .reporters.base_reporter import default_report_dir
 from .services import restart_services, test_services
 
 log = setup_logger(__name__)
-root_logger = setup_logger()
+main_logger = setup_logger()
 
 
 class Runner:
@@ -44,7 +44,7 @@ class Runner:
         self.report_dir = report_dir
 
         if not self.quiet:
-            setup_console_log_handler(root_logger, self.verbose)
+            setup_console_log_handler(main_logger, self.verbose)
         if not self.verbose:
             logging.getLogger('requests').setLevel(logging.WARNING)
         if self.log_to_file:
@@ -71,7 +71,7 @@ class Runner:
 
         def publishing_job_generator():
             for config_name, config in configs.items():
-                log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
+                log_file_handler = setup_file_log_handler(main_logger, config_name, self.log_dir) if self.log_to_file else None
                 try:
                     for result in publish_config(
                         config,
@@ -95,7 +95,7 @@ class Runner:
                     raise
                 finally:
                     if log_file_handler:
-                        root_logger.removeHandler(log_file_handler)
+                        main_logger.removeHandler(log_file_handler)
 
         return list(publishing_job_generator())
 
@@ -109,7 +109,7 @@ class Runner:
         log.info(f'Batch cleaning configs: {", ".join(config_name for config_name in configs.keys())}')
 
         for config_name, config in configs.items():
-            log_file_handler = setup_file_log_handler(root_logger, config_name, self.log_dir) if self.log_to_file else None
+            log_file_handler = setup_file_log_handler(main_logger, config_name, self.log_dir) if self.log_to_file else None
             try:
                 cleanup_config(
                     config,
@@ -123,7 +123,7 @@ class Runner:
                 raise
             finally:
                 if log_file_handler:
-                    root_logger.removeHandler(log_file_handler)
+                    main_logger.removeHandler(log_file_handler)
 
     def run_service_inventory_report(
         self,

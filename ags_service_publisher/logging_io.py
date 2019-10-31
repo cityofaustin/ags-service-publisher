@@ -8,7 +8,7 @@ default_log_dir = os.getenv(
 )
 
 
-def setup_logger(namespace=None, level='DEBUG', handler=None):
+def setup_logger(namespace='ags_service_publisher', level='DEBUG', handler=None):
     logger = logging.getLogger(namespace)
     logger.setLevel(level)
     logger.addHandler(logging.NullHandler() if handler is None else handler)
