@@ -350,6 +350,7 @@ def publish_services(
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
+                server_url = ags_instance_props['url']
                 proc = (
                     multiprocessing.Process(
                         target=logged_call,
@@ -361,6 +362,7 @@ def publish_services(
                             source_dir,
                             ags_instance,
                             ags_connection,
+                            server_url,
                             service_folder,
                             service_properties,
                             service_prefix,
@@ -410,6 +412,7 @@ def publish_service(
     source_dir,
     ags_instance,
     ags_connection,
+    server_url,
     service_folder=None,
     service_properties=None,
     service_prefix='',
@@ -491,8 +494,8 @@ def publish_service(
             if not sd.is_file():
                 log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
                 arcpy.StageService_server(str(sddraft), str(sd))
-            log.debug(f'Uploading SD file: {sd} to AGS connection file: {ags_connection}')
-            arcpy.UploadServiceDefinition_server(str(sd), ags_connection)
+            log.debug(f'Uploading SD file: {sd} to AGS server URL: {server_url}')
+            arcpy.UploadServiceDefinition_server(str(sd), server_url)
             log.info(
                 f'Service {service_folder}/{service_name} successfully published to '
                 f'{ags_instance} at {datetime.datetime.now():%#m/%#d/%y %#I:%M:%S %p}'
