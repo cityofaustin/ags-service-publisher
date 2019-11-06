@@ -14,6 +14,7 @@ def modify_sddraft(sddraft, service_properties=None):
     tree = ElementTree.parse(sddraft)
 
     # Handle special configuration service properties
+    copy_data_to_server = service_properties.get('copy_data_to_server', False)
     replace_service = service_properties.get('replace_service', False)
     tile_scheme_file = service_properties.get('tile_scheme_file')
     cache_tile_format = service_properties.get('cache_tile_format')
@@ -42,6 +43,16 @@ def modify_sddraft(sddraft, service_properties=None):
             ).text = ','.join(feature_access_capabilities)
     else:
         log.debug('No feature access properties specified')
+
+    # Copy data to server if specified
+    if copy_data_to_server:
+        log.debug('Copying data to server')
+        tree.find('ByReference').text = 'true'
+        tree.find(
+            "./StagingSettings/PropertyArray/PropertySetProperty[Key='IncludeDataInSDFile']/Value"
+        ).text = 'true'
+    else:
+        log.debug('Data will not be copied to server')
 
     # Replace the service if specified
     if replace_service:
