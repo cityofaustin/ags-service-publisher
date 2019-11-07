@@ -468,7 +468,7 @@ def publish_service(
             locator_path = source_dir / original_service_name
             if service_properties.get('rebuild_locators'):
                 log.info(f'Rebuilding locator {locator_path}')
-                arcpy.RebuildAddressLocator_geocoding(str(locator_path))
+                arcpy.RebuildAddressLocator_geocoding(f'{locator_path}.loc')
             analysis = arcpy.CreateGeocodeSDDraft(
                 str(locator_path),
                 str(sddraft),
