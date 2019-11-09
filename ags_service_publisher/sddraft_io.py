@@ -21,6 +21,7 @@ def modify_sddraft(sddraft, service_properties=None):
     compression_quality = service_properties.get('compression_quality')
     keep_existing_cache = service_properties.get('keep_existing_cache', False)
     feature_access = service_properties.get('feature_access')
+    calling_context = service_properties.get('calling_context')
 
     if feature_access:
         log.debug('Feature access properties specified')
@@ -53,6 +54,13 @@ def modify_sddraft(sddraft, service_properties=None):
         ).text = 'true'
     else:
         log.debug('Data will not be copied to server')
+
+    # Set calling context
+    if calling_context is not None:
+        log.debug(f'Setting calling context to {calling_context}')
+        tree.find(
+            "./StagingSettings/PropertyArray/PropertySetProperty[Key='CallingContext']/Value"
+        ).text = str(calling_context)
 
     # Replace the service if specified
     if replace_service:
