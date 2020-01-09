@@ -609,11 +609,15 @@ def parse_datasets_from_service_manifest(data):
 
 def parse_connection_properties_from_service_manifest(data):
     tree = ElementTree.fromstring(data)
-    conn_string_xpath = './Databases/SVCDatabase/OnServerConnectionString'
-    conn_string_element = tree.find(conn_string_xpath)
-    if conn_string_element is not None:
-        conn_string = conn_string_element.text
-        return parse_connection_string(conn_string)
+    for conn_string_xpath in (
+        './Databases/SVCDatabase/OnServerConnectionString',
+        './Databases/SVCDatabase/OnPremiseConnectionString',
+    ):
+        conn_string_element = tree.find(conn_string_xpath)
+        if conn_string_element is not None:
+            conn_string = conn_string_element.text
+            if conn_string is not None:
+                return parse_connection_string(conn_string)
     else:
         log.warn('No connection string element found!')
         return {}
