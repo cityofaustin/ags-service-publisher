@@ -178,7 +178,15 @@ def publish_env(
             create_backups
         ):
             if result['succeeded'] and update_timestamps:
-                set_publishing_summary(user_config, env_name, result)
+                set_publishing_summary(
+                    user_config,
+                    env_name,
+                    result['ags_instance'],
+                    result['service_name'],
+                    result['service_folder'],
+                    result['service_type'],
+                    result['timestamp']
+                )
             yield result
     finally:
         restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
@@ -188,9 +196,17 @@ def publish_env(
             cleanup_instance(ags_instance, env_name, config, user_config)
 
 
-def set_publishing_summary(user_config, env_name, result):
+def set_publishing_summary(
+    user_config,
+    env_name,
+    ags_instance,
+    service_name,
+    service_folder,
+    service_type,
+    timestamp
+):
     try:
-        ags_instance_props = user_config['environments'][env_name]['ags_instances'][result['ags_instance']]
+        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
         server_url = ags_instance_props['url']
         token = ags_instance_props['token']
         proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
@@ -198,31 +214,31 @@ def set_publishing_summary(user_config, env_name, result):
             item_info = get_service_item_info(
                 server_url,
                 token,
-                result['service_name'],
-                result['service_folder'],
-                result['service_type'],
+                service_name,
+                service_folder,
+                service_type,
                 session=session
             )
             item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y at %#I:%M:%S %p}'.format(
                 getpass.getuser(),
-                result['timestamp']
+                timestamp
             )
             set_service_item_info(
                 server_url,
                 token,
                 item_info,
-                result['service_name'],
-                result['service_folder'],
-                result['service_type'],
+                service_name,
+                service_folder,
+                service_type,
                 session=session
             )
     except StandardError:
         log.warning(
             'An error occurred while updating timestamp for service {}/{} to ArcGIS Server instance {}'
             .format(
-                result['service_folder'],
-                result['service_name'],
-                result['ags_instance']
+                service_folder,
+                service_name,
+                ags_instance
             ),
             exc_info=True
         )
