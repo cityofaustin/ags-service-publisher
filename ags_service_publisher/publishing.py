@@ -175,18 +175,9 @@ def publish_env(
             service_prefix,
             service_suffix,
             warn_on_publishing_errors,
-            create_backups
+            create_backups,
+            update_timestamps
         ):
-            if update_timestamps and result['succeeded']:
-                set_publishing_summary(
-                    user_config,
-                    env_name,
-                    result['ags_instance'],
-                    result['service_name'],
-                    result['service_folder'],
-                    result['service_type'],
-                    result['timestamp']
-                )
             yield result
     finally:
         restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
@@ -194,54 +185,6 @@ def publish_env(
     if cleanup_services:
         for ags_instance in ags_instances:
             cleanup_instance(ags_instance, env_name, config, user_config)
-
-
-def set_publishing_summary(
-    user_config,
-    env_name,
-    ags_instance,
-    service_name,
-    service_folder,
-    service_type,
-    timestamp
-):
-    try:
-        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
-        server_url = ags_instance_props['url']
-        token = ags_instance_props['token']
-        proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-        with create_session(server_url, proxies=proxies) as session:
-            item_info = get_service_item_info(
-                server_url,
-                token,
-                service_name,
-                service_folder,
-                service_type,
-                session=session
-            )
-            item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y at %#I:%M:%S %p}'.format(
-                getpass.getuser(),
-                timestamp
-            )
-            set_service_item_info(
-                server_url,
-                token,
-                item_info,
-                service_name,
-                service_folder,
-                service_type,
-                session=session
-            )
-    except StandardError:
-        log.warning(
-            'An error occurred while updating timestamp for service {}/{} to ArcGIS Server instance {}'
-            .format(
-                service_folder,
-                service_name,
-                ags_instance
-            ),
-            exc_info=True
-        )
 
 
 def get_site_modes(ags_instances, env_name, user_config):
@@ -311,7 +254,8 @@ def publish_services(
     service_prefix='',
     service_suffix='',
     warn_on_publishing_errors=False,
-    create_backups=True
+    create_backups=True,
+    update_timestamps=True
 ):
     for (
         service_name,
@@ -434,6 +378,7 @@ def publish_services(
             errors = list()
             for proc, ags_instance in procs:
                 error_message = None
+                timestamp = datetime.datetime.now()
                 if proc.exitcode != 0:
                     succeeded = False
                     error_message = 'An error occurred in subprocess {} (pid {}, exitcode {}) ' \
@@ -449,6 +394,16 @@ def publish_services(
                     errors.append(error_message)
                 else:
                     succeeded = True
+                    if update_timestamps:
+                        set_publishing_summary(
+                            user_config,
+                            env_name,
+                            ags_instance,
+                            service_name,
+                            service_folder,
+                            service_type,
+                            timestamp
+                        )
                 yield dict(
                     env_name=env_name,
                     ags_instance=ags_instance,
@@ -458,7 +413,7 @@ def publish_services(
                     file_path=file_path,
                     succeeded=succeeded,
                     error=error_message,
-                    timestamp=datetime.datetime.now()
+                    timestamp=timestamp
                 )
             if len(errors) > 0 and not warn_on_publishing_errors:
                 log.error(
@@ -565,6 +520,54 @@ def publish_service(
     finally:
         log.debug('Cleaning up temporary directory: {}'.format(tempdir))
         rmtree(tempdir, ignore_errors=True)
+
+
+def set_publishing_summary(
+    user_config,
+    env_name,
+    ags_instance,
+    service_name,
+    service_folder,
+    service_type,
+    timestamp
+):
+    try:
+        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+        server_url = ags_instance_props['url']
+        token = ags_instance_props['token']
+        proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+        with create_session(server_url, proxies=proxies) as session:
+            item_info = get_service_item_info(
+                server_url,
+                token,
+                service_name,
+                service_folder,
+                service_type,
+                session=session
+            )
+            item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y at %#I:%M:%S %p}'.format(
+                getpass.getuser(),
+                timestamp
+            )
+            set_service_item_info(
+                server_url,
+                token,
+                item_info,
+                service_name,
+                service_folder,
+                service_type,
+                session=session
+            )
+    except StandardError:
+        log.warning(
+            'An error occurred while updating timestamp for service {}/{} to ArcGIS Server instance {}'
+            .format(
+                service_folder,
+                service_name,
+                ags_instance
+            ),
+            exc_info=True
+        )
 
 
 def cleanup_config(
