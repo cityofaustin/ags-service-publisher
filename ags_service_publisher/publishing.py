@@ -177,7 +177,7 @@ def publish_env(
             warn_on_publishing_errors,
             create_backups
         ):
-            if result['succeeded'] and update_timestamps:
+            if update_timestamps and result['succeeded']:
                 set_publishing_summary(
                     user_config,
                     env_name,
