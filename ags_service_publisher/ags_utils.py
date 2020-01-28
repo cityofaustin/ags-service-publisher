@@ -18,6 +18,7 @@ from logging_io import setup_logger
 
 log = setup_logger(__name__)
 
+
 def create_session(server_url, proxies=None):
     session = requests.Session()
     if proxies:
@@ -25,6 +26,7 @@ def create_session(server_url, proxies=None):
     adapter = SSLContextAdapter()
     session.mount(server_url, adapter)
     return session
+
 
 def generate_token(server_url, username=None, password=None, expiration=15, ags_instance=None, session=None):
     username, password = prompt_for_credentials(username, password, ags_instance)
@@ -648,7 +650,7 @@ def restart_service(
         log.info(
             'Restarting service {} (URL {}, Folder: {}, attempt #{} of {})'
             .format(service_name, server_url, service_folder, retry_count, max_retries)
-         )
+        )
         stop_service(server_url, token, service_name, service_folder, service_type, session=session)
         log.debug(
             'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
@@ -774,6 +776,7 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
                 .format(sde_connection_file, ags_connection_file)
             )
             raise
+
 
 # Adapted from https://stackoverflow.com/a/50215614
 class SSLContextAdapter(HTTPAdapter):
