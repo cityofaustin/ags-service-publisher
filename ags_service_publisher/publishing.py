@@ -1,12 +1,13 @@
 from __future__ import unicode_literals
 
 import datetime
+import getpass
 import multiprocessing
 import os
 import tempfile
 from shutil import copyfile, rmtree
 
-from ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session
+from ags_utils import list_services, delete_service, get_site_mode, set_site_mode, create_session, get_service_item_info, set_service_item_info
 from config_io import get_config, default_config_dir
 from datasources import update_data_sources, open_mxd
 from extrafilters import superfilter
@@ -31,7 +32,8 @@ def publish_config(
     service_suffix='',
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
-    create_backups=True
+    create_backups=True,
+    update_timestamps=True
 ):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
@@ -55,7 +57,8 @@ def publish_config(
                 service_suffix,
                 warn_on_publishing_errors,
                 warn_on_validation_errors,
-                create_backups
+                create_backups,
+                update_timestamps
             ):
                 yield result
         else:
@@ -74,7 +77,8 @@ def publish_config_name(
     service_suffix='',
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
-    create_backups=True
+    create_backups=True,
+    update_timestamps=True
 ):
     config = get_config(config_name, config_dir)
     log.info('Publishing config \'{}\''.format(config_name))
@@ -90,7 +94,8 @@ def publish_config_name(
         service_suffix,
         warn_on_publishing_errors,
         warn_on_validation_errors,
-        create_backups
+        create_backups,
+        update_timestamps
     ):
         result['config_name'] = config_name
         yield result
@@ -108,7 +113,8 @@ def publish_env(
     service_suffix='',
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
-    create_backups=True
+    create_backups=True,
+    update_timestamps=True
 ):
     env = config['environments'][env_name]
     source_dir = env['source_dir']
@@ -171,6 +177,39 @@ def publish_env(
             warn_on_publishing_errors,
             create_backups
         ):
+            if result['succeeded'] and update_timestamps:
+                try:
+                    ags_instance_props = user_config['environments'][env_name]['ags_instances'][result['ags_instance']]
+                    server_url = ags_instance_props['url']
+                    token = ags_instance_props['token']
+                    proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                    with create_session(server_url, proxies=proxies) as session:
+                        item_info = get_service_item_info(
+                            server_url,
+                            token,
+                            result['service_name'],
+                            result['service_folder'],
+                            result['service_type'],
+                            session=session
+                        )
+                        item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y %#I:%M:%S %p}'.format(
+                            getpass.getuser(),
+                            result['timestamp']
+                        )
+                        set_service_item_info(
+                            server_url,
+                            token,
+                            item_info,
+                            result['service_name'],
+                            result['service_folder'],
+                            result['service_type'],
+                            session=session
+                        )
+                except StandardError:
+                    log.exception(
+                        'An error occurred while updating timestamp for service {}/{} to ArcGIS Server instance {}'
+                        .format(result['service_folder'], result['service_name'], result['ags_instance'])
+                    )
             yield result
     finally:
         restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
