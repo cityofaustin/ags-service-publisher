@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='ags_service_publisher',
-    version='1.2.1',
+    version='1.3.0',
     packages=['ags_service_publisher', 'ags_service_publisher.reporters'],
     install_requires=[
         'requests',
