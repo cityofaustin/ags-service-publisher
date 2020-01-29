@@ -18,6 +18,7 @@ from logging_io import setup_logger
 
 log = setup_logger(__name__)
 
+
 def create_session(server_url, proxies=None):
     session = requests.Session()
     if proxies:
@@ -25,6 +26,7 @@ def create_session(server_url, proxies=None):
     adapter = SSLContextAdapter()
     session.mount(server_url, adapter)
     return session
+
 
 def generate_token(server_url, username=None, password=None, expiration=15, ags_instance=None, session=None):
     username, password = prompt_for_credentials(username, password, ags_instance)
@@ -267,6 +269,103 @@ def get_service_info(server_url, token, service_name, service_folder=None, servi
     except StandardError:
         log.exception(
             'An error occurred while getting info for service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def get_service_item_info(server_url, token, service_name, service_folder=None, service_type='MapServer', session=None):
+    log.debug('Getting item info for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'iteminfo'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = session.post(url, params={'f': 'json'}, data={'token': token})
+        log.debug('Request URL: {}'. format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        if data.get('error'):
+            raise RuntimeError(data.get('error').get('message'))
+        log.debug(
+            'Service {} item info (URL {}, Folder: {}): {}'
+            .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
+        )
+        return data
+    except StandardError:
+        log.exception(
+            'An error occurred while getting item info for service {}/{}'
+            .format(service_folder, service_name)
+        )
+        raise
+
+
+def set_service_item_info(server_url, token, item_info, service_name, service_folder=None, service_type='MapServer', session=None):
+    log.debug('Setting item info for service {} (URL {}, Folder: {})'.format(service_name, server_url, service_folder))
+    url = urljoin(
+        server_url,
+        '/'.join(
+            (
+                part for part in (
+                    '/arcgis/admin/services',
+                    service_folder,
+                    '{}.{}'.format(service_name, service_type),
+                    'iteminfo/edit'
+                ) if part
+            )
+        )
+    )
+    try:
+        r = session.post(
+            url,
+            params={
+                'f': 'json'
+            },
+            data={'token': token},
+            files=[
+                (
+                    'serviceItemInfo',
+                    (
+                        None,
+                        json.dumps(item_info)
+                    )
+                ),
+                (
+                    'thumbnail',
+                    (
+                        '',
+                        None,
+                        'application/octet-stream'
+                    )
+                )
+            ]
+        )
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        if data.get('error'):
+            raise RuntimeError(data.get('error').get('message'))
+        log.debug(
+            'Updated service {} item info (URL {}, Folder: {}): {}'
+            .format(service_name, server_url, service_folder, json.dumps(data, indent=4))
+        )
+        return data
+    except StandardError:
+        log.exception(
+            'An error occurred while setting item info for service {}/{}'
             .format(service_folder, service_name)
         )
         raise
@@ -551,7 +650,7 @@ def restart_service(
         log.info(
             'Restarting service {} (URL {}, Folder: {}, attempt #{} of {})'
             .format(service_name, server_url, service_folder, retry_count, max_retries)
-         )
+        )
         stop_service(server_url, token, service_name, service_folder, service_type, session=session)
         log.debug(
             'Waiting {} seconds before restarting service {} (URL {}, Folder: {})'
@@ -677,6 +776,7 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
                 .format(sde_connection_file, ags_connection_file)
             )
             raise
+
 
 # Adapted from https://stackoverflow.com/a/50215614
 class SSLContextAdapter(HTTPAdapter):
