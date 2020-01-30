@@ -202,7 +202,18 @@ proxies: # Top-level proxy settings
     
     - **Note:** Similarly, a prefix can also be specified using `service_prefix`.
 
-**Note:** By default, backups are created when publishing MapServer and GeocodeServer services. A `Backups` subdirectory is created in the same directory as the source file(s), and a copy of the services to be published are placed there with a timestamp appended. To disable creating backups, pass the `create_backups=False` argument.
+#### Additional arguments
+
+- `create_backups`: By default, backups are created when publishing MapServer and GeocodeServer services.
+
+    A `Backups` subdirectory is created in the same directory as the source file(s), and a copy of the services to be published are placed there with a timestamp appended.
+    
+    To disable creating backups, pass the `create_backups=False` argument.
+- `update_timestamps`: By default, when a service is successfully published, the `summary` field of the service is updated with a message including the publisher's username and the date and time of publishing.
+
+    This requires a valid [ArcGIS Admin REST API token][5] be set for each ArcGIS Server instance being published to (see the ["Generate tokens"](#generate-tokens) section  below for more details).
+    
+    To disable updating timestamps, pass the `update_timestamps=False` argument.
 
 ### Clean up services
 
