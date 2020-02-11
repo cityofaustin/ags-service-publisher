@@ -95,7 +95,7 @@ def get_layer_properties(layer):
             )
         )
 
-        # Provide a fallback layers without a database property
+        # Provide a fallback for layers without a database property
         if database == 'n/a':
             database = db_connection_properties
 
