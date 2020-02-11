@@ -61,7 +61,7 @@ def get_aprx_data_sources(aprx_path, include_table_views=True):
     log.debug(f'Getting data sources for ArcGIS Pro project file: {aprx_path}')
 
     for layer in list_layers_in_map(open_aprx(aprx_path).listMaps()[0], include_table_views):
-        if hasattr(layer, 'dataSource'):
+        if layer.supports('dataSource'):
             yield get_layer_properties(layer)
 
 
@@ -69,7 +69,7 @@ def get_layer_properties(layer):
     layer_name = getattr(layer, 'longName', layer.name)
     log.debug(f'Getting properties for layer: {layer_name}')
 
-    if hasattr(layer, 'dataSource'):
+    if layer.supports('dataSource'):
         (
             definition_query,
             show_labels,
@@ -132,7 +132,7 @@ def get_layer_fields(layer):
     fields = desc.fields
     indexes = desc.indexes
     for field in fields:
-        in_definition_query = field.name.lower() in layer.definitionQuery if hasattr(layer, 'definitionQuery') else False
+        in_definition_query = field.name.lower() in layer.definitionQuery if layer.supports('definitionQuery') else False
         yield dict(
             field_name=field.name,
             field_type=field.type,
@@ -184,7 +184,7 @@ def update_data_sources(aprx_path, data_source_mappings):
     aprx = open_aprx(aprx_path)
     map_ = aprx.listMaps()[0]
     for layer in list_layers_in_map(map_):
-        if hasattr(layer, 'connectionProperties'):
+        if layer.supports('dataSource'):
             layer_name = getattr(layer, 'longName', layer.name)
             dataset_name = deep_get(layer, 'connectionProperties.dataset')
             current_database = deep_get(
