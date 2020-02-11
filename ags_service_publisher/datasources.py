@@ -79,6 +79,7 @@ def get_layer_properties(layer):
             user,
             version,
             database,
+            db_connection_properties,
         ) = (
             deep_get(layer, attr, 'n/a') for attr in (
                 'definitionQuery',
@@ -88,9 +89,14 @@ def get_layer_properties(layer):
                 'connectionProperties.dataset',
                 'connectionProperties.connection_info.user',
                 'connectionProperties.connection_info.version',
-                'connectionProperties.connection_info.server',
+                'connectionProperties.connection_info.database',
+                'connectionProperties.connection_info.db_connection_properties',
             )
         )
+
+        # Provide a fallback layers without a database property
+        if database == 'n/a':
+            database = db_connection_properties
 
         result = dict(
             layer_name=layer_name,
