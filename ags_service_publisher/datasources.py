@@ -1,3 +1,4 @@
+import collections
 import fnmatch
 from pathlib import Path
 
@@ -191,31 +192,61 @@ def update_data_sources(aprx_path, data_source_mappings):
     map_ = aprx.listMaps()[0]
     for layer in list_layers_in_map(map_):
         if layer.supports('dataSource'):
-            layer_name = getattr(layer, 'longName', layer.name)
-            dataset_name = deep_get(layer, 'connectionProperties.dataset')
-            current_database = deep_get(
-                layer,
-                'connectionProperties.connection_info.server',
-                deep_get(
-                    layer,
-                    'connectionProperties.connection_info.database',
-                    None
+            layer_props = get_layer_properties(layer)
+            layer_name = layer_props.get('layer_name')
+            dataset_name = layer_props.get('dataset_name')
+            current_database = layer_props.get('database')
+            current_version = layer_props.get('version')
+            match_found = False
+
+            if isinstance(data_source_mappings, collections.abc.Mapping):
+                for source, target in data_source_mappings.items():
+                    if match_data_source_mapping(layer_props, source, target):
+                        match_found = True
+                        break
+            else:
+                for data_source_mapping in data_source_mappings:
+                    if isinstance(data_source_mapping, collections.abc.Mapping):
+                        source = data_source_mapping.get('source')
+                        target = data_source_mapping.get('target')
+                        if not source or not target:
+                            for source, target in data_source_mapping.items():
+                                if match_data_source_mapping(layer_props, source, target):
+                                    match_found = True
+                                    break
+                        if match_found:
+                            break
+                        if match_data_source_mapping(layer_props, source, target):
+                            match_found = True
+                            break
+
+            if match_found:
+                new_database = target
+                log.info(
+                    f'Updating connection properties for layer {layer_name}, dataset name: {dataset_name}, '
+                    f'current database: {current_database}, current version: {current_version}, new database: {new_database}'
                 )
-            )
-            for key, value in data_source_mappings.items():
-                if fnmatch.fnmatch(current_database, key):
-                    new_database = value
-                    log.info(
-                        f'Updating connection properties for layer {layer_name}, dataset name: {dataset_name}, '
-                        f'current database: {current_database}, new database: {new_database}'
-                    )
-                    update_layer_data_source(map_, layer, new_database)
-                    break
+                update_layer_data_source(map_, layer, target)
             else:
                 log.warn(
-                    f'No match for layer {layer_name}, dataset name: {dataset_name}, database: {current_database}'
+                    f'No match for layer {layer_name}, dataset name: {dataset_name}, database: {current_database}, version: {current_version}'
                 )
     aprx.save()
+
+
+def match_data_source_mapping(layer_props, source, target):
+    match_found = False
+    if isinstance(source, collections.abc.Mapping):
+        if all(
+            (
+                fnmatch.fnmatch(layer_props.get(key), value)
+                for key, value in source.items()
+            )
+        ):
+            match_found = True
+    elif fnmatch.fnmatch(layer_props.get('database'), source):
+        match_found = True
+    return match_found
 
 
 def get_geometry_statistics(dataset_path):
