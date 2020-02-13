@@ -113,7 +113,7 @@ environments:
       # Note that order is significant; we list our more specific mapping first so that it short-circuits the evalution of subsequent mappings
       - source:
           database: gisdmdev
-          version: sde_external
+          version: sde_external.default
         target: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
       # Example of mapping by source database name, using a list of mappings and a simple mapping
       - gisdmdev: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde 
@@ -126,7 +126,7 @@ environments:
     data_source_mappings:
       - source:
           database: gisdm* # Example of using a wildcard in the value (no quotes necessary)
-          version: sde_external
+          version: sde_external.default
         target: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
       # Example of using a wildcard in the key (must be wrapped in quotes due to the special character)
       - 'gisdm*': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
