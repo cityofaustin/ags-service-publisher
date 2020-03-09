@@ -3,6 +3,7 @@ import getpass
 import json
 import re
 import time
+from distutils.util import strtobool
 from ssl import create_default_context
 from urllib3.poolmanager import PoolManager
 from xml.etree import ElementTree
@@ -185,14 +186,21 @@ def list_service_workspaces(server_url, token, service_name, service_folder=None
         assert (r.status_code == 200)
         data = r.text
         datasets = parse_datasets_from_service_manifest(data)
-        conn_props = parse_connection_properties_from_service_manifest(data)
 
-        for dataset_props in datasets:
+        for dataset in datasets:
+            dataset_name = dataset['dataset_name']
+            dataset_type = dataset['dataset_type']
+            dataset_path = dataset['dataset_path']
+            by_reference = dataset['by_reference']
+            conn_props = dataset['conn_props']
             yield dict(
                 user=conn_props.get('USER', 'n/a'),
-                database=parse_database_from_service_string(conn_props.get('INSTANCE', 'n/a')),
+                database=get_database_from_connection_properties(conn_props),
                 version=conn_props.get('VERSION', 'n/a'),
-                **dataset_props
+                dataset_name=dataset_name,
+                dataset_type=dataset_type,
+                dataset_path=dataset_path,
+                by_reference=by_reference,
             )
     except Exception:
         log.exception(
@@ -691,26 +699,34 @@ def restart_service(
 
 def parse_datasets_from_service_manifest(data):
     tree = ElementTree.fromstring(data)
-    datasets_xpath = './Databases/SVCDatabase/Datasets/SVCDataset'
-    subelements = tree.findall(datasets_xpath)
-    for subelement in subelements:
-        dataset_path = subelement.find('OnPremisePath').text
-        dataset_name = os.path.basename(dataset_path)
-        dataset_type = subelement.find('DatasetType').text
-        yield dict(
-            dataset_name=dataset_name,
-            dataset_type=dataset_type,
-            dataset_path=dataset_path
-        )
+    databases_xpath = './Databases/SVCDatabase'
+    datasets_xpath = './Datasets/SVCDataset'
+    database_elements = tree.findall(databases_xpath)
+    for database_element in database_elements:
+        by_reference = bool(strtobool(database_element.find('ByReference').text))
+        conn_props = parse_connection_properties_from_service_manifest(database_element, by_reference)
+        for dataset_element in database_element.findall(datasets_xpath):
+            dataset_path = dataset_element.find('OnPremisePath').text
+            dataset_name = os.path.basename(dataset_path)
+            dataset_type = dataset_element.find('DatasetType').text
+            yield dict(
+                dataset_name=dataset_name,
+                dataset_type=dataset_type,
+                dataset_path=dataset_path,
+                by_reference=by_reference,
+                conn_props=conn_props,
+            )
 
 
-def parse_connection_properties_from_service_manifest(data):
-    tree = ElementTree.fromstring(data)
+def parse_connection_properties_from_service_manifest(database_element, by_reference):
     for conn_string_xpath in (
-        './Databases/SVCDatabase/OnServerConnectionString',
-        './Databases/SVCDatabase/OnPremiseConnectionString',
+        'OnServerConnectionString',
+        'OnPremiseConnectionString',
     ):
-        conn_string_element = tree.find(conn_string_xpath)
+        # Prefer on-premise connection string if data is copied to server
+        if not by_reference and conn_string_xpath == 'OnServerConnectionString':
+            continue
+        conn_string_element = database_element.find(conn_string_xpath)
         if conn_string_element is not None:
             conn_string = conn_string_element.text
             if conn_string is not None:
@@ -730,11 +746,32 @@ def parse_connection_string(conn_string):
 
 
 def parse_database_from_service_string(database):
-    if database != 'n/a':
-        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:\\;\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
+    if database and database != 'n/a':
+        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:[\\/];\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
         match = re.match(pattern, database)
         if match:
             database = match.group(1)
+        else:
+            log.warn(f'Regex pattern failed to match database: {database}')
+    return database
+
+
+def get_database_from_connection_properties(conn_props):
+    if not conn_props:
+        log.warn(f'No connection properties specified!')
+        return 'n/a'
+    database = 'n/a'
+    if 'DATABASE' in conn_props:
+        database = conn_props.get('DATABASE', 'n/a')
+    if database == 'n/a' and 'DB_CONNECTION_PROPERTIES' in conn_props:
+        database = conn_props.get('DB_CONNECTION_PROPERTIES', 'n/a')
+        if database == '/' or database == '\\':
+            database = 'n/a'
+    if database == 'n/a' and 'INSTANCE' in conn_props:
+        database = conn_props.get('INSTANCE', 'n/a')
+    database = parse_database_from_service_string(database)
+    if database == 'n/a':
+        log.warn(f'No database found in connection properties: {conn_props}')
     return database
 
 
