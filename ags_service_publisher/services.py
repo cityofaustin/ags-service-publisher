@@ -11,6 +11,7 @@ from .ags_utils import (
     create_session,
     get_service_manifest,
     get_service_status,
+    list_data_stores,
     list_service_folders,
     list_service_workspaces,
     list_services,
@@ -66,6 +67,34 @@ def generate_service_inventory(
                                 service_name=service_name,
                                 service_type=service_type
                             )
+
+
+def generate_data_stores_inventory(
+    included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+    included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+    config_dir=default_config_dir
+):
+    user_config = get_config('userconfig', config_dir)
+    env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
+    if len(env_names) == 0:
+        raise RuntimeError('No environments specified!')
+    for env_name in env_names:
+        env = user_config['environments'][env_name]
+        ags_instances = superfilter(env['ags_instances'].keys(), included_instances, excluded_instances)
+        log.info(f'Listing data stores on ArcGIS Server instances {", ".join(ags_instances)}')
+        for ags_instance in ags_instances:
+            ags_instance_props = env['ags_instances'][ags_instance]
+            server_url = ags_instance_props['url']
+            token = ags_instance_props['token']
+            proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+            with create_session(server_url, proxies=proxies) as session:
+                data_stores = list_data_stores(server_url, token, session=session)
+                for data_store in data_stores:
+                    yield dict(
+                        env_name=env_name,
+                        ags_instance=ags_instance,
+                        **data_store
+                    )
 
 
 def analyze_services(

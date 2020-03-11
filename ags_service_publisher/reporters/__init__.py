@@ -1,5 +1,6 @@
 from .dataset_geometry_statistics_reporter import DatasetGeometryStatisticsReporter
 from .dataset_usages_reporter import DatasetUsagesReporter
+from .data_stores_reporter import DataStoresReporter
 from .map_data_sources_reporter import MapDataSourcesReporter
 from .service_analysis_reporter import ServiceAnalysisReporter
 from .service_comparison_reporter import ServiceComparisonReporter

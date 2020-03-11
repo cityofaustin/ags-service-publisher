@@ -12,7 +12,7 @@ import requests
 from requests.compat import urljoin
 from requests.adapters import HTTPAdapter
 
-from .helpers import split_quoted_string, unquote_string
+from .helpers import split_quoted_string, unquote_string, deep_get
 from .logging_io import setup_logger
 
 log = setup_logger(__name__)
@@ -98,6 +98,68 @@ def set_site_mode(server_url, token, site_mode, session=None):
         return status
     except Exception:
         log.exception('An error occurred while setting site mode to {} (URL: {})'.format(site_mode, server_url))
+        raise
+
+
+def list_data_stores(server_url, token, session=None):
+    log.debug('Listing data stores (URL: {})'.format(server_url))
+    url = urljoin(server_url, '/arcgis/admin/data/items')
+    try:
+        r = session.post(
+            url,
+            params={
+                'f': 'json',
+            },
+            data={
+                'token': token,
+            }
+        )
+        log.debug('Request URL: {}'.format(r.url))
+        assert (r.status_code == 200)
+        data = r.json()
+        if data.get('status') == 'error':
+            raise RuntimeError(data.get('messages'))
+        root_items = data.get('rootItems', tuple())
+        data_stores = []
+        for root_item in root_items:
+            url = urljoin(server_url, '/arcgis/admin/data/findItems')
+            r = session.post(
+                url,
+                params={
+                    'f': 'json',
+                    'ancestorPath': root_item,
+                },
+                data={
+                    'token': token,
+                }
+            )
+            assert (r.status_code == 200)
+            data = r.json()
+            if data.get('status') == 'error':
+                raise RuntimeError(data.get('messages'))
+            for item in data.get('items', tuple()):
+                item_path = item.get('path', 'n/a')
+                item_type = item.get('type', 'n/a')
+                file_path = deep_get(item, 'info.path', 'n/a')
+                conn_props = parse_connection_string(deep_get(item, 'info.connectionString', dict()))
+                user = conn_props.get('USER', 'n/a')
+                version = conn_props.get('VERSION', 'n/a')
+                database = get_database_from_connection_properties(conn_props)
+                data_stores.append(dict(
+                    item_path=item_path,
+                    item_type=item_type,
+                    file_path=file_path,
+                    user=user,
+                    version=version,
+                    database=database,
+                ))
+        log.debug(
+            'Data stores (URL {}): {}'
+            .format(r.url, json.dumps(data_stores, indent=4))
+        )
+        return data_stores
+    except Exception:
+        log.exception('An error occurred while listing data stores (URL: {})'.format(server_url))
         raise
 
 
