@@ -14,8 +14,8 @@ class DataStoresReporter(BaseReporter):
     column_mappings = collections.OrderedDict((
         ('env_name', 'Environment'),
         ('ags_instance', 'AGS Instance'),
-        ('name', 'Name'),
-        ('type', 'Type'),
+        ('item_path', 'Item Path'),
+        ('item_type', 'Item Type'),
         ('file_path', 'File Path'),
         ('user', 'User'),
         ('database', 'Database'),
