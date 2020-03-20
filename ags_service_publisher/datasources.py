@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import collections
 import os
 import re
 import fnmatch
@@ -182,25 +183,71 @@ def update_data_sources(mxd_path, data_source_mappings):
     log.info('Updating data sources in MXD: {}'.format(mxd_path))
 
     mxd = open_mxd(mxd_path)
-    for layer in list_layers_in_mxd(mxd):
-        if hasattr(layer, 'workspacePath'):
-            layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
-            for key, value in data_source_mappings.iteritems():
-                if fnmatch.fnmatch(layer.workspacePath, key):
-                    new_workspace_path = value
+    try:
+        for layer in list_layers_in_mxd(mxd):
+            if layer.supports('dataSource'):
+                layer_props = get_layer_properties(layer)
+                layer_name = layer_props.get('layer_name')
+                dataset_name = layer_props.get('dataset_name')
+                current_database = layer_props.get('database')
+                current_version = layer_props.get('version')
+                match_found = False
+
+                if isinstance(data_source_mappings, collections.Mapping):
+                    for source, target in data_source_mappings.items():
+                        if match_data_source_mapping(layer_props, source, target):
+                            match_found = True
+                            break
+                else:
+                    for data_source_mapping in data_source_mappings:
+                        if isinstance(data_source_mapping, collections.Mapping):
+                            source = data_source_mapping.get('source')
+                            target = data_source_mapping.get('target')
+                            if not source or not target:
+                                for source, target in data_source_mapping.items():
+                                    if match_data_source_mapping(layer_props, source, target):
+                                        match_found = True
+                                        break
+                            if match_found:
+                                break
+                            if match_data_source_mapping(layer_props, source, target):
+                                match_found = True
+                                break
+
+                if match_found:
+                    new_workspace_path = target
                     log.info(
                         'Updating workspace path for layer {}, dataset name: {}, '
-                        'current workspace path: {}, new workspace path: {}'
-                        .format(layer_name, layer.datasetName, layer.workspacePath, new_workspace_path)
+                        'current database: {}, current version: {}, current workspace path: {}, new workspace path: {}'
+                        .format(layer_name, dataset_name, current_database, current_version, layer.workspacePath, new_workspace_path)
                     )
                     layer.findAndReplaceWorkspacePath(layer.workspacePath, new_workspace_path, False)
-                    break
-            else:
-                log.warn(
-                    'No match for layer {}, dataset name: {}, workspace path: {}'
-                    .format(layer_name, layer.datasetName, layer.workspacePath)
-                )
-    mxd.save()
+                else:
+                    log.warn(
+                        'No match for layer {}, dataset name: {}, database: {}, version: {} workspace path: {}'
+                        .format(layer_name, layer.datasetName, current_database, current_version, layer.workspacePath)
+                    )
+        mxd.save()
+    except StandardError:
+        log.exception('An error occurred while updating data sources in MXD: {}'.format(mxd_path))
+        raise
+
+
+def match_data_source_mapping(layer_props, source, target):
+    match_found = False
+    if isinstance(source, collections.Mapping):
+        if all(
+            (
+                fnmatch.fnmatch(layer_props.get(key, ''), value)
+                for key, value in source.items()
+            )
+        ):
+            match_found = True
+    elif fnmatch.fnmatch(layer_props.get('workspace_path', ''), source):
+        match_found = True
+    elif fnmatch.fnmatch(layer_props.get('database', ''), source):
+        match_found = True
+    return match_found
 
 
 def get_geometry_statistics(dataset_path):

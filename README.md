@@ -6,7 +6,7 @@
 
 The primary purpose of this tool is to automate the publishing of MXD files to Map Services on ArcGIS Server, using
 [YAML][1] configuration files to define the service folders, environments, services, 
-[service properties](#service-properties), data source mappings and more. Publishing geocoding services is also
+[service properties](#service-properties), [data source mappings](#data-source-mappings) and more. Publishing geocoding services is also
 supported, with some limitations (e.g. no data source mapping).
 
 Additional features include [cleaning up](#clean-up-services) outdated services and
@@ -70,10 +70,7 @@ of your ArcGIS Server instances.
     4. Within each environment, specify the following keys:
         - `ags_instances`: List of ArcGIS Server instances (as defined in [`userconfig.yml`](#userconfigyml)) to publish
             to.
-        - `data_source_mappings` (optional): Mappings of source data paths to destination data paths (e.g. development
-            environment SDE connection files to test environment SDE connection files)
-            - Supported by `MapServer` services, but not `GeocodeServer` services.
-            - [`fnmatch`][8]-style wildcards are supported in the keys for `data_source_mappings`, but note that in YAML you must enclose keys in single quotes if they contain a non-alphanumeric character.
+        - `data_source_mappings` (optional): See [data source mappings](#data-source-mappings)
         - `source_dir`: Directory containing the source files (MXDs, locator files, etc.) to publish.
         - `staging_dir` (optional): Directory containing staging files to copy into `source_dir` prior to mapping data
             sources and publishing.
@@ -104,13 +101,23 @@ environments:
     service_properties: # example of specifying environment-level properties
       isolation: high
       instances_per_container: 1
+    data_source_mappings:
+      # Example of mapping by source workspace path, using a simple mapping; note that when using a wildcard in the key it must be wrapped in quotes due to the special character
+      '*\gisDmDev (LPUGH).sde': \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE).sde
+      '*\gisDmDev (LPUGH) external.sde': \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections\gisDmDev (COUNCILDISTRICTMAP_SERVICE) external.sde
   test:
     ags_instances:
       - coagist1
       - coagist2
     data_source_mappings:
-      '*\gisDmDev (COUNCILDISTRICTMAP_SERVICE).sde': \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde
-      '*\gisDmDev (COUNCILDISTRICTMAP_SERVICE) external.sde': \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
+      # Example of mapping by specific connection properties, using a list of mappings and source/target keys
+      # Note that order is significant; we list our more specific mapping first so that it short-circuits the evalution of subsequent mappings
+      - source:
+          database: gisdmdev
+          version: sde_external
+        target: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde
+      # Example of mapping by source database name, using a list of mappings and a simple mapping
+      - gisdmdev: \\coacd.org\gis\AGS\Config\AgsEntTest\Service-Connections\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde
     source_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
     staging_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\mxd-source\CouncilDistrictMap
   prod:
@@ -118,8 +125,12 @@ environments:
       - coagisp1
       - coagisp2
     data_source_mappings:
-      '*\gisDmTest (COUNCILDISTRICTMAP_SERVICE).sde': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
-      '*\gisDmTest (COUNCILDISTRICTMAP_SERVICE) external.sde': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
+      - source:
+          database: gisdm* # Example of using a wildcard in the value (no quotes necessary)
+          version: sde_external
+        target: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE) external.sde
+      # Example of using a wildcard in the key (must be wrapped in quotes due to the special character)
+      - 'gisdm*': \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections\gisDm (COUNCILDISTRICTMAP_SERVICE).sde
     source_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\mxd-source\CouncilDistrictMap
     staging_dir: \\coacd.org\gis\AGS\Config\AgsEntTest\mxd-source\CouncilDistrictMap
 ```
@@ -236,7 +247,7 @@ reports which layers are present in each MXD as well as information about each l
 database, user, version, SQL where clause, etc.).
 
 Useful for determining what data sources are present in an MXD prior to publishing it, so that you
-can specify data source mappings, register data sources with ArcGIS Server, or look for potential problems with SQL
+can specify [data source mappings](#data-source-mappings), register data sources with ArcGIS Server, or look for potential problems with SQL
 where clauses.
 
 ##### Examples:
@@ -506,6 +517,32 @@ Service properties may be set at multiple different "levels", allowing you to de
 **Note:** Service properties are applied in the order given above, e.g. service folder, then environment, then
 service-level. So when the same property is specified at a subsequent level, it overrides the value of the
 previous level.
+
+See the [example configuration files](#example-configuration-files) section for more details.
+
+## Data source mappings
+
+When publishing services it is often necessary to change which data sources are referenced by the layers in the map being published.
+
+This is supported by the `data_source_mappings` key, specified within each environment of a service folder configuration file.
+
+**Note:** Data source mappings are supported by `MapServer` services, but not `GeocodeServer` services.
+
+  - Can be specified as either a mapping (simpler) or a list of mappings (more flexible)
+  - If a mapping is provided, the keys are the source database names or workspace paths to match on, and the values are paths to the target workspace paths to map to
+  - If a list of mappings is provided, you can use either of the following forms for each mapping:
+    - A mapping, as above, whose keys are the source database names or workspace paths to match on, and the values are paths to the target workspace paths to map to
+    - A mapping with `source` and `target` keys:
+        - `source` is a mapping of connection property names and values to match on. All of the specified criteria must match for the mapping to be applied.
+            - Supported connection properties:
+                - `layer_name`
+                - `dataset_name`
+                - `user`
+                - `database`
+                - `version`
+                - `workspace_path`
+        - `target` is the target workspace path (e.g. SDE connection file or file geodatabase) to map to
+  - [`fnmatch`][8]-style wildcards are supported, but note that in YAML you must enclose keys in single quotes if they contain a non-alphanumeric character.
 
 See the [example configuration files](#example-configuration-files) section for more details.
 
