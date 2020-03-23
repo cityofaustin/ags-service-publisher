@@ -477,10 +477,13 @@ Additionally, the following "special" service properties are recognized:
     types are below:
     - `MapServer`
     - `GeocodeServer`
+- `copy_data_to_server`: Whether to copy data used by services to the server
 - `replace_service`: If set to `True`, specifies that any existing service is to be replaced. This can be
     useful to enable if you find duplicate services with a timestamp suffix are being created on the server.
 - `rebuild_locators`: Whether to rebuild locators before publishing them (only applies to `GeocodeServer`
     services).
+- `calling_context`: Sets the `CallingContext` property under the `StagingSettings` property set.
+    Setting this to `0` may resolve some errors with the `StageService` tool.
 - `tile_scheme_file`: Path to a tile scheme file in XML format as created by the
     [Generate Map Server Cache Tiling Scheme][7] geoprocessing tool. Used for specifying the tile scheme of
     cached map services.

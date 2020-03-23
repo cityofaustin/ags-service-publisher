@@ -25,6 +25,7 @@ class DatasetUsagesReporter(BaseReporter):
         ('database', 'Database'),
         ('version', 'Version'),
         ('dataset_path', 'Dataset Path'),
+        ('by_reference', 'By Reference'),
     ))
     record_class_name = 'DatasetUsagesRecord'
     record_class, header_row = BaseReporter.setup_subclass(column_mappings, record_class_name)

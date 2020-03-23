@@ -2,9 +2,9 @@ from __future__ import unicode_literals
 
 import collections
 import os
-import re
 import fnmatch
 
+from ags_utils import parse_database_from_service_string
 from helpers import list_files_in_dir, deep_get
 from logging_io import setup_logger
 
@@ -168,15 +168,6 @@ def find_field_in_label_classes(layer, field):
         in_label_class_expression=in_label_class_expression,
         in_label_class_sql_query=in_label_class_sql_query
     )
-
-
-def parse_database_from_service_string(database):
-    if database != 'n/a':
-        pattern = re.compile(r'^(?:sde:\w+\$)?(?:sde:\w+:)(?:\\;\w+=)?([^;:\$]+)[;:\$]?.*$', re.IGNORECASE)
-        match = re.match(pattern, database)
-        if match:
-            database = match.group(1)
-    return database
 
 
 def update_data_sources(mxd_path, data_source_mappings):
