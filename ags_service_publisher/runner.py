@@ -13,6 +13,7 @@ from publishing import cleanup_config, publish_config
 from reporters import (
     DatasetGeometryStatisticsReporter,
     DatasetUsagesReporter,
+    DataStoresReporter,
     MxdDataSourcesReporter,
     ServiceAnalysisReporter,
     ServiceComparisonReporter,
@@ -200,6 +201,24 @@ class Runner:
             included_versions, excluded_versions,
             included_services, excluded_services,
             included_service_folders, excluded_service_folders,
+            included_instances, excluded_instances,
+            included_envs, excluded_envs,
+            self.config_dir
+        )
+
+    def run_data_stores_report(
+        self,
+        included_instances=asterisk_tuple, excluded_instances=empty_tuple,
+        included_envs=asterisk_tuple, excluded_envs=empty_tuple,
+        output_filename=None,
+        output_format='csv',
+    ):
+        reporter = DataStoresReporter(
+            output_dir=self.report_dir,
+            output_filename=output_filename,
+            output_format=output_format
+        )
+        return reporter.create_report(
             included_instances, excluded_instances,
             included_envs, excluded_envs,
             self.config_dir
