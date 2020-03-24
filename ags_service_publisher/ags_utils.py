@@ -813,8 +813,6 @@ def parse_database_from_service_string(database):
         match = re.match(pattern, database)
         if match:
             database = match.group(1)
-        else:
-            log.warn(f'Regex pattern failed to match database: {database}')
     return database
 
 
