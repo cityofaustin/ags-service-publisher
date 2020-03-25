@@ -291,6 +291,31 @@ particular datasets.
 **Note:** To generate Dataset Usage reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
     for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
 
+
+#### Data Stores Report
+
+This report type lists all of the data stores registered on ArcGIS Server.
+
+Useful for determining which data stores and database connections are available for services to be published to ArcGIS Server.
+
+##### Examples:
+
+- Generate a report in CSV format of the data stores registered on all ArcGIS Server instances defined in [`userconfig.yml`](#userconfigyml):
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_data_stores_report(output_filename='../ags-service-reports/Data-Stores-Report.csv')"
+    ```
+
+- Generate a report in CSV format of the data stores registered on the `coagisd1` ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml)
+
+    ```
+    python -c "from ags_service_publisher import Runner; Runner().run_data_stores_report(included_instances=['coagisd1'], output_filename='../ags-service-reports/Data-Stores-Report_coagisd1.csv')"
+    ```
+
+**Note:** To generate Data Stores reports, you must first [generate ArcGIS Admin REST API tokens](#generate-tokens)
+    for each ArcGIS Server instance defined in [`userconfig.yml`](#userconfigyml).
+
+
 #### Service Health Report
 
 This report type checks the health of services on ArcGIS Server and reports whether each service is started or stopped.
