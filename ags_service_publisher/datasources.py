@@ -74,41 +74,45 @@ def get_layer_properties(layer):
             'symbology.valueField',
         )
     )
-    if hasattr(layer, 'serviceProperties'):
-        (
-            user,
-            version,
-            service
-        ) = (
-            deep_get(layer, attr, 'n/a') for attr in (
-                'serviceProperties.UserName',
-                'serviceProperties.Version',
-                'serviceProperties.Service'
-            )
-        )
-        database = parse_database_from_service_string(service)
-    elif hasattr(layer, 'workspacePath'):
-        log.warn('Layer {} does not support serviceProperties, falling back to workspace connectionProperties'.format(layer_name))
-        import arcpy
-        desc = arcpy.Describe(layer.workspacePath)
-        if hasattr(desc, 'connectionProperties'):
-            conn_props = desc.connectionProperties
+    try:
+        if hasattr(layer, 'serviceProperties'):
             (
                 user,
                 version,
-                instance
+                service
             ) = (
-                getattr(conn_props, attr, 'n/a') for attr in (
-                    'user',
-                    'version',
-                    'server'
+                deep_get(layer, attr, 'n/a') for attr in (
+                    'serviceProperties.UserName',
+                    'serviceProperties.Version',
+                    'serviceProperties.Service'
                 )
             )
-            database = parse_database_from_service_string(instance)
+            database = parse_database_from_service_string(service)
+        elif hasattr(layer, 'workspacePath'):
+            log.warn('Layer {} does not support serviceProperties, falling back to workspace connectionProperties'.format(layer_name))
+            import arcpy
+            desc = arcpy.Describe(layer.workspacePath)
+            if hasattr(desc, 'connectionProperties'):
+                conn_props = desc.connectionProperties
+                (
+                    user,
+                    version,
+                    instance
+                ) = (
+                    getattr(conn_props, attr, 'n/a') for attr in (
+                        'user',
+                        'version',
+                        'server'
+                    )
+                )
+                database = parse_database_from_service_string(instance)
+            else:
+                raise RuntimeError('Unsupported layer {} (does not support connectionProperties)'.format(layer_name))
         else:
-            raise RuntimeError('Unsupported layer: {}'.format(layer_name))
-    else:
-        raise RuntimeError('Unsupported layer: {}'.format(layer_name))
+            raise RuntimeError('Unsupported layer {} (does not support serviceProperties or workspacePath)'.format(layer_name))
+    except StandardError:
+        log.warning('Error retrieving connection properties from layer {}'.format(layer), exc_info=True)
+        user = version = database = 'n/a'
 
     result = dict(
         layer_name=layer_name,
