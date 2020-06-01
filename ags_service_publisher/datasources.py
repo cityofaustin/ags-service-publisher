@@ -61,60 +61,85 @@ def get_layer_properties(layer):
     layer_name = layer.longName if hasattr(layer, 'longName') else layer.name
     log.debug('Getting properties for layer: {}'.format(layer_name))
 
-    if hasattr(layer, 'workspacePath'):
+    (
+        definition_query,
+        show_labels,
+        symbology_type,
+        symbology_field,
+    ) = (
+        deep_get(layer, attr, 'n/a') for attr in (
+            'definitionQuery',
+            'showLabels',
+            'symbologyType',
+            'symbology.valueField',
+        )
+    )
+    if hasattr(layer, 'serviceProperties'):
         (
-            definition_query,
-            show_labels,
-            symbology_type,
-            symbology_field,
             user,
             version,
             service
         ) = (
             deep_get(layer, attr, 'n/a') for attr in (
-                'definitionQuery',
-                'showLabels',
-                'symbologyType',
-                'symbology.valueField',
                 'serviceProperties.UserName',
                 'serviceProperties.Version',
                 'serviceProperties.Service'
             )
         )
         database = parse_database_from_service_string(service)
-
-        result = dict(
-            layer_name=layer_name,
-            dataset_name=layer.datasetName,
-            workspace_path=layer.workspacePath,
-            is_broken=layer.isBroken,
-            user=user,
-            database=database,
-            version=version,
-            definition_query=definition_query,
-            show_labels=show_labels,
-            symbology_type=symbology_type,
-            symbology_field=symbology_field
-        )
-
-        log.debug(
-            'Layer name: {layer_name}, '
-            'Dataset name: {dataset_name}, '
-            'Workspace path: {workspace_path}, '
-            'Data source is broken: {is_broken}, '
-            'User: {user}, '
-            'Database: {database}, '
-            'Version: {version}, '
-            'Definition query: {definition_query}, '
-            'Show labels: {show_labels}, '
-            'Symbology type: {symbology_type}, '
-            'Symbology field: {symbology_field}'
-            .format(**result)
-        )
-
-        return result
+    elif hasattr(layer, 'workspacePath'):
+        log.warn('Layer {} does not support serviceProperties, falling back to workspace connectionProperties'.format(layer_name))
+        import arcpy
+        desc = arcpy.Describe(layer.workspacePath)
+        if hasattr(desc, 'connectionProperties'):
+            conn_props = desc.connectionProperties
+            (
+                user,
+                version,
+                instance
+            ) = (
+                getattr(conn_props, attr, 'n/a') for attr in (
+                    'user',
+                    'version',
+                    'server'
+                )
+            )
+            database = parse_database_from_service_string(instance)
+        else:
+            raise RuntimeError('Unsupported layer: {}'.format(layer_name))
     else:
         raise RuntimeError('Unsupported layer: {}'.format(layer_name))
+
+    result = dict(
+        layer_name=layer_name,
+        dataset_name=layer.datasetName,
+        workspace_path=layer.workspacePath,
+        is_broken=layer.isBroken,
+        user=user,
+        database=database,
+        version=version,
+        definition_query=definition_query,
+        show_labels=show_labels,
+        symbology_type=symbology_type,
+        symbology_field=symbology_field
+    )
+
+    log.debug(
+        'Layer name: {layer_name}, '
+        'Dataset name: {dataset_name}, '
+        'Workspace path: {workspace_path}, '
+        'Data source is broken: {is_broken}, '
+        'User: {user}, '
+        'Database: {database}, '
+        'Version: {version}, '
+        'Definition query: {definition_query}, '
+        'Show labels: {show_labels}, '
+        'Symbology type: {symbology_type}, '
+        'Symbology field: {symbology_field}'
+        .format(**result)
+    )
+
+    return result
 
 
 def get_layer_fields(layer):
@@ -176,7 +201,7 @@ def update_data_sources(mxd_path, data_source_mappings):
     mxd = open_mxd(mxd_path)
     try:
         for layer in list_layers_in_mxd(mxd):
-            if layer.supports('dataSource'):
+            if hasattr(layer, 'dataSource'):
                 layer_props = get_layer_properties(layer)
                 layer_name = layer_props.get('layer_name')
                 dataset_name = layer_props.get('dataset_name')
