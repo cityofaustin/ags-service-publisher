@@ -111,7 +111,7 @@ def get_layer_properties(layer):
         else:
             raise RuntimeError('Unsupported layer {} (does not support serviceProperties or workspacePath)'.format(layer_name))
     except StandardError:
-        log.warning('Error retrieving connection properties from layer {}'.format(layer), exc_info=True)
+        log.warning('Error retrieving connection properties from layer {}'.format(layer_name), exc_info=True)
         user = version = database = 'n/a'
 
     result = dict(
