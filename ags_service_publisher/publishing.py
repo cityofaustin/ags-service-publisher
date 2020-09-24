@@ -124,10 +124,10 @@ def publish_env(
     update_timestamps=True
 ):
     env = config['environments'][env_name]
-    source_dir = Path(env['source_dir'])
+    source_dir = Path(env.get('source_dir')) if env.get('source_dir') else None
     ags_instances = superfilter(env['ags_instances'], included_instances, excluded_instances)
     services = superfilter(config['services'], included_services, excluded_services)
-    service_folder = config.get('service_folder', source_dir.name)
+    service_folder = config.get('service_folder', source_dir.name if source_dir else None)
     default_service_properties = config.get('default_service_properties')
     env_service_properties = env.get('service_properties', {})
     data_source_mappings = env.get('data_source_mappings', {})
@@ -267,7 +267,7 @@ def publish_services(
     create_backups=True,
     update_timestamps=True
 ):
-    source_dir = Path(source_dir)
+    source_dir = Path(source_dir) if source_dir else None
     for (
         service_name,
         service_type,
@@ -280,7 +280,7 @@ def publish_services(
         service_info = source_info[service_name]
         file_path = service_info['source_file']
         with open_queue() as log_queue:
-            if create_backups:
+            if create_backups and source_dir:
                 backup_dir = source_dir / 'Backup'
                 if not backup_dir.is_dir():
                     log.warn(f'Creating backup directory {backup_dir}')
@@ -306,7 +306,7 @@ def publish_services(
                     if staging_dir:
                         staging_file_path = Path(service_info['staging_files'][0])
                         log.info(f'Copying staging file {staging_file_path} to {source_file_path}')
-                        if not source_dir.is_dir():
+                        if source_dir and not source_dir.is_dir():
                             log.warn(f'Creating source directory {source_dir}')
                             source_dir.mkdir(parents=True)
                         if staging_file_path.suffix.lower() == '.mxd':
@@ -339,7 +339,7 @@ def publish_services(
                     if staging_dir:
                         staging_locator_path = Path(service_info['staging_files'][0])
                         log.info(f'Copying staging locator file {staging_locator_path} to {source_locator_path}')
-                        if not source_dir.is_dir():
+                        if source_dir and not source_dir.is_dir():
                             log.warn(f'Creating source directory {source_dir}')
                             source_dir.mkdir(parents=True)
                         copyfile(staging_locator_path, source_locator_path)
@@ -484,7 +484,20 @@ def publish_service(
             log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
             result = arcpy.StageService_server(str(sddraft), str(sd))
             analysis = analyze_staging_result(result)
-
+        elif service_type == 'ImageServer':
+            dataset_name = service_properties['dataset_name']
+            dataset_workspace = service_properties['dataset_workspace']
+            dataset_path = Path(dataset_workspace) / dataset_name
+            analysis = arcpy.CreateImageSDDraft(
+                str(dataset_path),
+                str(sddraft),
+                service_name,
+                'FROM_CONNECTION_FILE',
+                ags_connection,
+                False,
+                service_folder
+            )
+            modify_sddraft(sddraft, service_properties)
         elif service_type == 'GeocodeServer':
             locator_path = source_dir / original_service_name
             if service_properties.get('rebuild_locators'):
@@ -510,7 +523,8 @@ def publish_service(
                 if layerlist:
                     log_method('       applies to:')
                     for layer in layerlist:
-                        log_method(f'           {layer if isinstance(layer, str) else getattr(layer, "longName", layer.name)}')
+                        if layer:
+                            log_method(f'           {layer if isinstance(layer, str) else getattr(layer, "longName", layer.name)}')
         if analysis['errors'] == {}:
             if not sd.is_file():
                 log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
