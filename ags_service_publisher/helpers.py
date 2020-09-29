@@ -18,7 +18,7 @@ def deep_get(obj, attr, default=NoDefaultProvided):
             attr.split('.'),
             obj
         )
-    except (KeyError, NameError, AttributeError):
+    except (KeyError, NameError, AttributeError, RuntimeError):
         if default != NoDefaultProvided:
             return default
         raise
