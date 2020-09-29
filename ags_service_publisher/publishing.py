@@ -286,7 +286,7 @@ def publish_services(
                     log.warn(f'Creating backup directory {backup_dir}')
                     backup_dir.mkdir(parents=True)
                 timestamp = datetime.datetime.now()
-                if service_type == 'MapServer':
+                if service_type in ('MapServer', 'ImageServer'):
                     source_file_path = Path(file_path)
                     backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}{source_file_path.suffix}'
                     log.info(f'Backing up source file {source_file_path} to {backup_file_path}')
@@ -301,7 +301,7 @@ def publish_services(
                     if source_locator_lox_path.is_file():
                         copyfile(source_locator_lox_path, backup_file_path.parent / f'{backup_file_path.stem}.lox')
             if copy_source_files_from_staging_folder:
-                if service_type == 'MapServer':
+                if service_type in ('MapServer', 'ImageServer'):
                     source_file_path = Path(file_path)
                     if staging_dir:
                         staging_file_path = Path(service_info['staging_files'][0])
@@ -455,7 +455,7 @@ def publish_service(
     try:
         sddraft = tempdir / f'{service_name}.sddraft'
         sd = tempdir / f'{service_name}.sd'
-        if service_type == 'MapServer':
+        if service_type in ('MapServer', 'ImageServer'):
             file_path = Path(source_dir) / f'{original_service_name}.aprx'
             if not file_path.exists():
                 file_path = Path(source_dir) / f'{original_service_name}.mxd'
@@ -470,34 +470,42 @@ def publish_service(
             else:
                 raise RuntimeError(f'Unrecognized file type for {file_path}')
             map_ = aprx.listMaps()[0]
-            map_service_draft = arcpy.sharing.CreateSharingDraft(
-                server_type='STANDALONE_SERVER',
-                service_type='MAP_SERVICE',
-                service_name=service_name,
-                draft_value=map_
-            )
-            map_service_draft.targetServer = ags_connection
-            map_service_draft.serverFolder = service_folder
-            log.debug(f'Creating SDDraft file: {sddraft}')
-            map_service_draft.exportToSDDraft(str(sddraft))
-            modify_sddraft(str(sddraft), service_properties)
-            log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
-            result = arcpy.StageService_server(str(sddraft), str(sd))
-            analysis = analyze_staging_result(result)
-        elif service_type == 'ImageServer':
-            dataset_name = service_properties['dataset_name']
-            dataset_workspace = service_properties['dataset_workspace']
-            dataset_path = Path(dataset_workspace) / dataset_name
-            analysis = arcpy.CreateImageSDDraft(
-                str(dataset_path),
-                str(sddraft),
-                service_name,
-                'FROM_CONNECTION_FILE',
-                ags_connection,
-                False,
-                service_folder
-            )
-            modify_sddraft(sddraft, service_properties)
+            if service_type == 'MapServer':
+                map_service_draft = arcpy.sharing.CreateSharingDraft(
+                    server_type='STANDALONE_SERVER',
+                    service_type='MAP_SERVICE',
+                    service_name=service_name,
+                    draft_value=map_
+                )
+                map_service_draft.targetServer = ags_connection
+                map_service_draft.serverFolder = service_folder
+                log.debug(f'Creating SDDraft file: {sddraft}')
+                map_service_draft.exportToSDDraft(str(sddraft))
+                modify_sddraft(sddraft, service_properties)
+                log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
+                result = arcpy.StageService_server(str(sddraft), str(sd))
+                analysis = analyze_staging_result(result)
+            elif service_type == 'ImageServer':
+                dataset_path = None
+                for layer in map_.listLayers():
+                    desc = arcpy.Describe(layer)
+                    if desc.dataType in ('MosaicLayer', 'RasterLayer'):
+                        dataset_path = desc.catalogPath
+                        log.debug(f'Using layer {layer.name} (Dataset path: {dataset_path}) as image service data source')
+                        break
+                else:
+                    raise RuntimeError(f'No supported mosaic or raster layers found in source document {file_path}!')
+                log.debug(f'Creating SDDraft file: {sddraft}')
+                analysis = arcpy.CreateImageSDDraft(
+                    str(dataset_path),
+                    str(sddraft),
+                    service_name,
+                    'FROM_CONNECTION_FILE',
+                    ags_connection,
+                    False,
+                    service_folder
+                )
+                modify_sddraft(sddraft, service_properties)
         elif service_type == 'GeocodeServer':
             locator_path = source_dir / original_service_name
             if service_properties.get('rebuild_locators'):

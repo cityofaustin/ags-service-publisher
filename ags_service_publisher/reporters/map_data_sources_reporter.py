@@ -88,7 +88,7 @@ class MapDataSourcesReporter(BaseReporter):
                     default_service_properties,
                     env_service_properties
                 ):
-                    if service_type == 'MapServer':
+                    if service_type in ('MapServer', 'ImageServer'):
                         def generate_map_data_sources_report_rows(file_path, source_or_target):
                             file_path = Path(file_path)
                             tempdir = None

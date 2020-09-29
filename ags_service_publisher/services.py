@@ -593,7 +593,7 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
             for _staging_dir in staging_dirs:
                 log.debug(f'Finding staging items in directory: {_staging_dir}')
                 _staging_dir = Path(_staging_dir)
-                if service_type == 'MapServer':
+                if service_type in ('MapServer', 'ImageServer'):
                     # First look for APRX file
                     staging_file = _staging_dir / f'{service_name}.aprx'
                     if not staging_file.is_file():
@@ -622,7 +622,7 @@ def get_source_info(services, source_dir, staging_dir, default_service_propertie
         if source_dir:
             log.debug(f'Finding source files in directory: {source_dir}')
             source_dir = Path(source_dir)
-            if service_type == 'MapServer':
+            if service_type in ('MapServer', 'ImageServer'):
                 # First look for APRX file
                 source_file = source_dir / f'{service_name}.aprx'
                 if not source_file.is_file():
