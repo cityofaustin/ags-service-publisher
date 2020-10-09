@@ -231,7 +231,7 @@ class Runner:
         included_services=asterisk_tuple, excluded_services=empty_tuple,
         included_envs=asterisk_tuple, excluded_envs=empty_tuple,
         included_datasets=asterisk_tuple, excluded_datasets=empty_tuple,
-        include_staging_mxds=True,
+        include_staging_files=True,
         output_filename=None,
         output_format='csv',
         warn_on_validation_errors=False
@@ -249,7 +249,7 @@ class Runner:
             included_services, excluded_services,
             included_envs, excluded_envs,
             included_datasets, excluded_datasets,
-            include_staging_mxds,
+            include_staging_files,
             warn_on_validation_errors,
             self.config_dir
         )
