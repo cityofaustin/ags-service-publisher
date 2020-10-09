@@ -596,6 +596,22 @@ def test_service(server_url, token, service_name, service_folder=None, service_t
                 },
                 service_status
             )
+        elif service_type == 'ImageServer':
+            service_info = get_service_info(server_url, token, service_name, service_folder, service_type, session=session)
+            initial_extent = service_info.get('initialExtent')
+            x = (initial_extent['xmax'] + initial_extent['xmin']) / 2.0
+            y = (initial_extent['ymax'] + initial_extent['ymin']) / 2.0
+            geometry = f'{x},{y}'
+            return perform_service_health_check(
+                'identify',
+                {
+                    'f': 'json',
+                    'geometry': geometry,
+                    'geometryType': 'esriGeometryPoint',
+                    'returnGeometry': 'false'
+                },
+                service_status
+            )
         elif service_type == 'GeocodeServer':
             service_info = get_service_info(server_url, token, service_name, service_folder, service_type, session=session)
             address_fields = service_info.get('addressFields')
