@@ -303,6 +303,8 @@ def publish_services(
             if copy_source_files_from_staging_folder:
                 if service_type in ('MapServer', 'ImageServer'):
                     source_file_path = Path(file_path)
+                    if source_file_path.suffix.lower() == '.mxd':
+                        source_file_path = source_file_path.parent / f'{source_file_path.stem}.aprx'
                     if staging_dir:
                         staging_file_path = Path(service_info['staging_files'][0])
                         log.info(f'Copying staging file {staging_file_path} to {source_file_path}')
