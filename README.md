@@ -4,10 +4,9 @@
 
 ## Overview
 
-The primary purpose of this tool is to automate the publishing of ArcGIS Pro projects to Map Services on ArcGIS Server, using
+The primary purpose of this tool is to automate the publishing of ArcGIS Pro projects to services on ArcGIS Server, using
 [YAML][1] configuration files to define the service folders, environments, services, 
-[service properties](#service-properties), [data source mappings](#data-source-mappings) and more. Publishing geocoding services is also
-supported, with some limitations (e.g. no data source mapping).
+[service properties](#service-properties), [data source mappings](#data-source-mappings) and more. You can publish `MapServer`, `FeatureServer`, `ImageServer` and `GeocodeServer` services using this tool.
 
 Additional features include [cleaning up](#clean-up-services) outdated services and
 [generating reports](#generate-reports) about existing services and the datasets they reference on ArcGIS Server.
@@ -71,7 +70,7 @@ of your ArcGIS Server instances.
         - `ags_instances`: List of ArcGIS Server instances (as defined in [`userconfig.yml`](#userconfigyml)) to publish
             to.
         - `data_source_mappings` (optional): See [data source mappings](#data-source-mappings)
-        - `source_dir`: Directory containing the source files (MXDs, locator files, etc.) to publish.
+        - `source_dir`: Directory containing the source files (APRX/MXD files, locator files, etc.) to publish.
         - `staging_dir` (optional): Directory containing staging files to copy into `source_dir` prior to mapping data
             sources and publishing.
             - Can also be a list of multiple staging directories. Each service may only have one corresponding staging
@@ -214,7 +213,7 @@ proxies: # Top-level proxy settings
 
 #### Additional arguments
 
-- `create_backups`: By default, backups are created when publishing MapServer and GeocodeServer services.
+- `create_backups`: By default, backups are created when publishing MapServer, ImageServer and GeocodeServer services.
 
     A `Backups` subdirectory is created in the same directory as the source file(s), and a copy of the services to be published are placed there with a timestamp appended.
     
@@ -239,29 +238,29 @@ proxies: # Top-level proxy settings
 
 ### Generate reports
 
-#### MXD Data Sources report
+#### Map Data Sources report
 
-This report type inspects map document (MXD) files corresponding to services defined in YAML configuration files and
-reports which layers are present in each MXD as well as information about each layer's data source (workspace path,
+This report type inspects ArcGIS Pro Project (APRX) or map document (MXD) files corresponding to services defined in YAML configuration files and
+reports which layers are present in each APRX/MXD file as well as information about each layer's data source (workspace path,
 database, user, version, SQL where clause, etc.).
 
-Useful for determining what data sources are present in an MXD prior to publishing it, so that you
+Useful for determining what data sources are present in an APRX/MXD file prior to publishing it, so that you
 can specify [data source mappings](#data-source-mappings), register data sources with ArcGIS Server, or look for potential problems with SQL
 where clauses.
 
 ##### Examples:
 
-- Generate a report in CSV format of all the layers and data sources in each staging and source MXD corresponding to
+- Generate a report in CSV format of all the layers and data sources in each staging and source APRX/MXD file corresponding to
     each service defined in the [`CouncilDistrictMap.yml`](#councildistrictmapyml) configuration file:
     
     ```
-    python -c "from ags_service_publisher import Runner; Runner().run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_map_data_sources_report(included_configs=['CouncilDistrictMap'], output_filename='../ags-service-reports/CouncilDistrictMap-Map-Data-Sources-Report.csv')"
     ```
 
-- Same as above, but exclude staging MXDs (MXDs located within the `staging_dir`) from the report:
+- Same as above, but exclude staging APRX/MXD files (located within the `staging_dir`) from the report:
     
     ```
-    python -c "from ags_service_publisher import Runner; Runner().run_mxd_data_sources_report(included_configs=['CouncilDistrictMap'], include_staging_mxds=False, output_filename='../ags-service-reports/CouncilDistrictMap-MXD-Report-no-staging.csv')"
+    python -c "from ags_service_publisher import Runner; Runner().run_map_data_sources_report(included_configs=['CouncilDistrictMap'], include_staging_files=False, output_filename='../ags-service-reports/CouncilDistrictMap-Map-Data-Sources-Report-no-staging.csv')"
     ```
 
 #### Dataset Usages report
@@ -320,7 +319,7 @@ Useful for determining which data stores and database connections are available 
 
 This report type checks the health of services on ArcGIS Server and reports whether each service is started or stopped.
 
-Additionally, for MapServer and GeocodeServer services, a query is run against each service and information about the
+Additionally, for MapServer, ImageServer and GeocodeServer services, a query is run against each service and information about the
 results, including response time and any error messages, are added to the report.
 
 Useful for determining which services are stopped, running slowly, or returning errors.
@@ -497,10 +496,13 @@ you can use `snake_case` to specify them; for example `instances_per_container` 
 
 Additionally, the following "special" service properties are recognized:
 
-- `service_type`: The type of service to publish. Defaults to `MapServer`. Currently the only supported
-    types are below:
+- `service_type`: The type of service to publish. Defaults to `MapServer`. The currently supported
+    values for this property are:
     - `MapServer`
+    - `ImageServer`
     - `GeocodeServer`
+
+    **Note:** Technically, on ArcGIS Server, `FeatureServer` services are a *capability* of `MapServer` services, and can be published by specifying the `feature_access` special service property detailed below.
 - `copy_data_to_server`: Whether to copy data used by services to the server
 - `replace_service`: If set to `True`, specifies that any existing service is to be replaced. This can be
     useful to enable if you find duplicate services with a timestamp suffix are being created on the server.
@@ -553,7 +555,7 @@ When publishing services it is often necessary to change which data sources are 
 
 This is supported by the `data_source_mappings` key, specified within each environment of a service folder configuration file.
 
-**Note:** Data source mappings are supported by `MapServer` services, but not `GeocodeServer` services.
+**Note:** Data source mappings are supported by `MapServer` and `ImageServer` services, but not `GeocodeServer` services.
 
   - Can be specified as either a mapping (simpler) or a list of mappings (more flexible)
   - If a mapping is provided, the keys are the source database names to match on, and the values are paths to the target SDE connection files or file geodatabases to map to
