@@ -232,6 +232,7 @@ def update_data_sources(aprx_path, data_source_mappings):
                     log.warn(
                         f'No match for layer {layer_name}, dataset name: {dataset_name}, database: {current_database}, version: {current_version}'
                     )
+        log.debug(f'Saving ArcGIS Pro project {aprx_path}')
         aprx.save()
     except Exception:
         log.exception(f'An error occurred while updating data sources in ArcGIS Pro project file: {aprx_path}')

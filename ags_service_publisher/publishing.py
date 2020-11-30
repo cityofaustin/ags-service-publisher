@@ -16,7 +16,7 @@ from .ags_utils import (
     set_service_item_info
 )
 from .config_io import get_config, default_config_dir
-from .datasources import update_data_sources, convert_mxd_to_aprx, open_aprx
+from .datasources import get_layer_properties, update_data_sources, convert_mxd_to_aprx, open_aprx
 from .extrafilters import superfilter
 from .helpers import asterisk_tuple, empty_tuple
 from .logging_io import setup_logger
@@ -493,7 +493,11 @@ def publish_service(
                     desc = arcpy.Describe(layer)
                     if desc.dataType in ('MosaicLayer', 'RasterLayer'):
                         dataset_path = desc.catalogPath
-                        log.debug(f'Using layer {layer.name} (Dataset path: {dataset_path}) as image service data source')
+                        layer_props = get_layer_properties(layer)
+                        layer_name = layer_props.get('layer_name')
+                        dataset_name = layer_props.get('dataset_name')
+                        current_database = layer_props.get('database')
+                        log.debug(f'Using layer {layer_name}, dataset name: {dataset_name}, database: {current_database}, dataset path: {dataset_path}) as image service data source')
                         break
                 else:
                     raise RuntimeError(f'No supported mosaic or raster layers found in source document {file_path}!')
