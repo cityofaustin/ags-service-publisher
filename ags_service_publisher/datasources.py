@@ -239,7 +239,7 @@ def update_data_sources(aprx_path, data_source_mappings):
                         f'Updating connection properties for layer {layer_name}, dataset name: {dataset_name}, '
                         f'current database: {current_database}, current version: {current_version}, new database: {new_database}'
                     )
-                    update_layer_data_source(layer, target)
+                    update_layer_data_source(map_, layer, target)
                 else:
                     log.warn(
                         f'No match for layer {layer_name}, dataset name: {dataset_name}, database: {current_database}, version: {current_version}'
@@ -310,23 +310,29 @@ def get_geometry_statistics(dataset_path):
     )
 
 
-def update_layer_data_source(layer, new_workspace):
+def update_layer_data_source(map_, layer, workspace):
+    '''
+    Workaround for Esri BUG-000112574 (https://support.esri.com/en/bugs/nimbus/QlVHLTAwMDExMjU3NA==)
+    '''
     try:
-        log.debug('Importing arcpy...')
-        try:
-            import arcpy
-        except Exception:
-            log.exception('An error occurred importing arcpy')
-            raise
-        log.debug('Successfully imported arcpy')
-        dataset_name = deep_get(layer, 'connectionProperties.dataset', 'n/a')
-        layer_desc = arcpy.Describe(layer)
-        current_workspace = layer_desc.path
+        workspace_path = Path(workspace)
+        dataset_name = deep_get(layer, 'connectionProperties.dataset')
+        cim = layer.getDefinition('V2')
+        feature_dataset = getattr(cim.featureTable.dataConnection, 'featureDataset', None)
+        dummy_layer_path = ((workspace_path / feature_dataset) if feature_dataset else workspace_path) / dataset_name
+        dummy_layer = map_.addDataFromPath(str(dummy_layer_path))
+        dummy_cim = dummy_layer.getDefinition('V2')
+        current_connection_string = cim.featureTable.dataConnection.workspaceConnectionString
+        new_connection_string = dummy_cim.featureTable.dataConnection.workspaceConnectionString
+
         log.debug(
             f'Updating connection properties for layer {layer.name}, dataset name: {dataset_name}, '
-            f'current workspace: \n{current_workspace}, new workspace: \n{new_workspace}'
+            f'current connection string: \n{current_connection_string}, new connection string: \n{new_connection_string}'
         )
-        layer.updateConnectionProperties(current_workspace, new_workspace)
+
+        cim.featureTable.dataConnection.workspaceConnectionString = new_connection_string
+        layer.setDefinition(cim)
+        map_.removeLayer(dummy_layer)
     except Exception:
-        log.exception(f'An error occurred while updating the data source for layer {layer.name} to new workspace: {new_workspace}')
+        log.exception(f'An error occurred while updating the data source for layer {layer.name}, workspace: {workspace}')
         raise
