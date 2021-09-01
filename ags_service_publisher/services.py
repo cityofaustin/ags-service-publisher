@@ -27,7 +27,7 @@ from .datasources import (
     get_layer_properties,
 )
 from .extrafilters import superfilter
-from .helpers import asterisk_tuple, empty_tuple
+from .helpers import asterisk_tuple, deep_get, empty_tuple
 from .logging_io import setup_logger
 
 log = setup_logger(__name__)
@@ -105,7 +105,13 @@ def analyze_services(
     warn_on_errors=True,
     config_dir=default_config_dir
 ):
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     arcpy.env.overwriteOutput = True
     user_config = get_config('userconfig', config_dir)
     env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
@@ -217,7 +223,7 @@ def analyze_services(
                                                 else:
                                                     log_method('       applies to:')
                                                     for layer in layerlist:
-                                                        layer_name = getattr(layer, 'longName', layer.name)
+                                                        layer_name = deep_get(layer, 'longName', layer.name)
                                                         layer_props = dict(
                                                             dataset_name=layer.datasetName,
                                                             workspace_path=layer.workspacePath,
@@ -264,7 +270,13 @@ def list_service_layer_fields(
     warn_on_errors=False,
     config_dir=default_config_dir
 ):
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     arcpy.env.overwriteOutput = True
     user_config = get_config('userconfig', config_dir)
     env_names = superfilter(user_config['environments'].keys(), included_envs, excluded_envs)
@@ -322,10 +334,10 @@ def list_service_layer_fields(
 
                                     for layer in list_layers_in_map(aprx.listMaps()[0]):
                                         if not (
-                                            getattr(layer, 'isGroupLayer', False) or
-                                            getattr(layer, 'isRasterLayer', False)
+                                            deep_get(layer, 'isGroupLayer', False) or
+                                            deep_get(layer, 'isRasterLayer', False)
                                         ):
-                                            layer_name = getattr(layer, 'longName', layer.name)
+                                            layer_name = deep_get(layer, 'longName', layer.name)
                                             try:
                                                 layer_props = get_layer_properties(layer)
                                             except Exception as e:
@@ -346,7 +358,7 @@ def list_service_layer_fields(
                                                     raise RuntimeError(
                                                         f'Layer\'s data source is broken '
                                                         f'(Layer: {layer_name}, '
-                                                        f'Data Source: {getattr(layer, "dataSource", "n/a")}'
+                                                        f'Data Source: {deep_get(layer, "dataSource", "n/a")}'
                                                     )
                                                 for field_props in get_layer_fields(layer):
                                                     field_props['needs_index'] = not field_props['has_index'] and (

@@ -34,7 +34,13 @@ def open_aprx(aprx_path):
         if not aprx_path.is_file():
             raise RuntimeError(f'ArcGIS Pro project file {aprx_path} does not exist!')
 
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     return arcpy.mp.ArcGISProject(str(aprx_path))
 
 
@@ -62,15 +68,15 @@ def get_aprx_data_sources(aprx_path, include_table_views=True):
     log.debug(f'Getting data sources for ArcGIS Pro project file: {aprx_path}')
 
     for layer in list_layers_in_map(open_aprx(aprx_path).listMaps()[0], include_table_views):
-        if hasattr(layer, 'dataSource'):
+        if deep_get(layer, 'dataSource', False):
             yield get_layer_properties(layer)
 
 
 def get_layer_properties(layer):
-    layer_name = getattr(layer, 'longName', layer.name)
+    layer_name = deep_get(layer, 'longName', layer.name)
     log.debug(f'Getting properties for layer: {layer_name}')
 
-    if hasattr(layer, 'dataSource'):
+    if deep_get(layer, 'dataSource', False):
         (
             definition_query,
             show_labels,
@@ -132,9 +138,15 @@ def get_layer_properties(layer):
 
 
 def get_layer_fields(layer):
-    layer_name = getattr(layer, 'longName', layer.name)
+    layer_name = deep_get(layer, 'longName', layer.name)
     log.debug(f'Getting fields for layer: {layer_name}')
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     desc = arcpy.Describe(layer)
     fields = desc.fields
     indexes = desc.indexes
@@ -167,7 +179,7 @@ def get_field_index(field, indexes):
 
 def find_field_in_label_classes(layer, field):
     in_label_class_expression = in_label_class_sql_query = False
-    if getattr(layer, 'showLabels'):
+    if deep_get(layer, 'showLabels', False):
         label_classes = layer.listLabelClasses()
         field_name = field.name
         log.debug(f'Finding occurrences of field {field_name} in label classes')
@@ -192,7 +204,7 @@ def update_data_sources(aprx_path, data_source_mappings):
         aprx = open_aprx(aprx_path)
         map_ = aprx.listMaps()[0]
         for layer in list_layers_in_map(map_):
-            if hasattr(layer, 'dataSource'):
+            if deep_get(layer, 'dataSource', False):
                 layer_props = get_layer_properties(layer)
                 layer_name = layer_props.get('layer_name')
                 dataset_name = layer_props.get('dataset_name')
@@ -257,7 +269,13 @@ def match_data_source_mapping(layer_props, source, target):
 def get_geometry_statistics(dataset_path):
     log.debug(f'Getting geometry statistics for dataset: {dataset_path}')
 
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     desc = arcpy.Describe(dataset_path)
     data_type = desc.dataType
 
@@ -294,7 +312,13 @@ def get_geometry_statistics(dataset_path):
 
 def update_layer_data_source(layer, new_workspace):
     try:
-        import arcpy
+        log.debug('Importing arcpy...')
+        try:
+            import arcpy
+        except Exception:
+            log.exception('An error occurred importing arcpy')
+            raise
+        log.debug('Successfully imported arcpy')
         dataset_name = deep_get(layer, 'connectionProperties.dataset', 'n/a')
         layer_desc = arcpy.Describe(layer)
         current_workspace = layer_desc.path

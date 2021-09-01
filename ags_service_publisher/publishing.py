@@ -18,7 +18,7 @@ from .ags_utils import (
 from .config_io import get_config, default_config_dir
 from .datasources import get_layer_properties, update_data_sources, convert_mxd_to_aprx, open_aprx
 from .extrafilters import superfilter
-from .helpers import asterisk_tuple, empty_tuple
+from .helpers import asterisk_tuple, deep_get, empty_tuple
 from .logging_io import setup_logger
 from .mplog import open_queue, logged_call
 from .sddraft_io import modify_sddraft
@@ -277,6 +277,7 @@ def publish_services(
         default_service_properties,
         env_service_properties
     ):
+        log.debug(f'Publishing {service_type} service {service_name} to environment {env_name}')
         service_info = source_info[service_name]
         file_path = service_info['source_file']
         with open_queue() as log_queue:
@@ -296,10 +297,15 @@ def publish_services(
                     backup_file_path = backup_dir / f'{service_name}_{timestamp:%Y%m%d_%H%M%S}.loc'
                     log.info(f'Backing up source locator file {source_locator_path} to {backup_file_path}')
                     copyfile(source_locator_path, backup_file_path)
-                    copyfile(f'{source_locator_path}.xml', f'{backup_file_path}.xml')
+                    source_locator_xml_path = source_locator_path.parent / f'{source_locator_path}.xml'
+                    if source_locator_xml_path.is_file():
+                        copyfile(source_locator_xml_path, f'{backup_file_path}.xml')
                     source_locator_lox_path = source_locator_path.parent / f'{source_locator_path.stem}.lox'
                     if source_locator_lox_path.is_file():
                         copyfile(source_locator_lox_path, backup_file_path.parent / f'{backup_file_path.stem}.lox')
+                    source_locator_loz_path = source_locator_path.parent / f'{source_locator_path.stem}.loz'
+                    if source_locator_loz_path.is_file():
+                        copyfile(source_locator_loz_path, backup_file_path.parent / f'{backup_file_path.stem}.loz')
             if copy_source_files_from_staging_folder:
                 if service_type in ('MapServer', 'ImageServer'):
                     source_file_path = Path(file_path)
@@ -345,10 +351,15 @@ def publish_services(
                             log.warn(f'Creating source directory {source_dir}')
                             source_dir.mkdir(parents=True)
                         copyfile(staging_locator_path, source_locator_path)
-                        copyfile(f'{staging_locator_path}.xml', f'{source_locator_path}.xml')
+                        staging_locator_xml_path = staging_locator_path.parent / f'{staging_locator_path}.xml'
+                        if staging_locator_xml_path.is_file():
+                            copyfile(staging_locator_xml_path, f'{source_locator_path}.xml')
                         staging_locator_lox_path = staging_locator_path.parent / f'{staging_locator_path.stem}.lox'
                         if staging_locator_lox_path.is_file():
                             copyfile(staging_locator_lox_path, source_locator_path.parent / f'{source_locator_path.stem}.lox')
+                        staging_locator_loz_path = staging_locator_path.parent / f'{staging_locator_path.stem}.loz'
+                        if staging_locator_loz_path.is_file():
+                            copyfile(staging_locator_loz_path, source_locator_path.parent / f'{source_locator_path.stem}.loz')
                     if not source_locator_path.is_file():
                         raise RuntimeError(f'Source locator file {source_locator_path} does not exist!')
                     if data_source_mappings:
@@ -362,7 +373,6 @@ def publish_services(
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
-                server_url = ags_instance_props['url']
                 proc = (
                     multiprocessing.Process(
                         target=logged_call,
@@ -374,7 +384,6 @@ def publish_services(
                             source_dir,
                             ags_instance,
                             ags_connection,
-                            server_url,
                             service_folder,
                             service_properties,
                             service_prefix,
@@ -435,13 +444,19 @@ def publish_service(
     source_dir,
     ags_instance,
     ags_connection,
-    server_url,
     service_folder=None,
     service_properties=None,
     service_prefix='',
     service_suffix=''
 ):
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
+
     arcpy.env.overwriteOutput = True
 
     original_service_name = service_name
@@ -506,10 +521,7 @@ def publish_service(
                     str(dataset_path),
                     str(sddraft),
                     service_name,
-                    'FROM_CONNECTION_FILE',
-                    ags_connection,
-                    False,
-                    service_folder
+                    folder_name=service_folder,
                 )
                 modify_sddraft(sddraft, service_properties)
         elif service_type == 'GeocodeServer':
@@ -521,10 +533,7 @@ def publish_service(
                 str(locator_path),
                 str(sddraft),
                 service_name,
-                'FROM_CONNECTION_FILE',
-                ags_connection,
-                False,
-                service_folder
+                folder_name=service_folder,
             )
             modify_sddraft(sddraft, service_properties)
         else:
@@ -538,13 +547,13 @@ def publish_service(
                     log_method('       applies to:')
                     for layer in layerlist:
                         if layer:
-                            log_method(f'           {layer if isinstance(layer, str) else getattr(layer, "longName", layer.name)}')
+                            log_method(f'           {layer if isinstance(layer, str) else deep_get(layer, "longName", layer.name)}')
         if analysis['errors'] == {}:
             if not sd.is_file():
                 log.debug(f'Staging SDDraft file: {sddraft} to SD file: {sd}')
                 arcpy.StageService_server(str(sddraft), str(sd))
-            log.debug(f'Uploading SD file: {sd} to AGS server URL: {server_url}')
-            arcpy.UploadServiceDefinition_server(str(sd), server_url)
+            log.debug(f'Uploading SD file: {sd} to AGS connection: {ags_connection}')
+            arcpy.UploadServiceDefinition_server(str(sd), ags_connection)
             log.info(
                 f'Service {service_folder}/{service_name} successfully published to '
                 f'{ags_instance} at {datetime.datetime.now():%#m/%#d/%y %#I:%M:%S %p}'

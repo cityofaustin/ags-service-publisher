@@ -877,7 +877,13 @@ def import_sde_connection_file(ags_connection_file, sde_connection_file):
         .format(sde_connection_file, ags_connection_file)
     )
 
-    import arcpy
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
     data_store_name = os.path.splitext(os.path.basename(sde_connection_file))[0]
     try:
         arcpy.AddDataStoreItem(
