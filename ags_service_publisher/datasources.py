@@ -321,10 +321,12 @@ def update_layer_data_source(map_, layer, workspace):
         except Exception:
             log.exception('An error occurred importing arcpy')
             raise
+        log.debug('Successfully imported arcpy')
         workspace_path = Path(workspace)
         dataset_name = deep_get(layer, 'connectionProperties.dataset')
         cim = layer.getDefinition('V2')
-        if isinstance(cim.featureTable.dataConnection, arcpy.cim.CIMVectorLayers.CIMSqlQueryDataConnection):
+        data_connection = deep_get(cim, 'dataConnection', deep_get(cim, 'featureTable.dataConnection', None))
+        if isinstance(data_connection, arcpy.cim.CIMVectorLayers.CIMSqlQueryDataConnection):
             # Use layer.updateConnectionProperties if layer is a query layer
             layer_desc = arcpy.Describe(layer)
             current_workspace = layer_desc.path
@@ -334,21 +336,22 @@ def update_layer_data_source(map_, layer, workspace):
             )
             layer.updateConnectionProperties(current_workspace, workspace)
         else:
-            feature_dataset = getattr(cim.featureTable.dataConnection, 'featureDataset', None)
+            feature_dataset = getattr(data_connection, 'featureDataset', None)
             dummy_layer_path = ((workspace_path / feature_dataset) if feature_dataset else workspace_path) / dataset_name
             dummy_layer = map_.addDataFromPath(str(dummy_layer_path))
             dummy_cim = dummy_layer.getDefinition('V2')
-            current_connection_string = cim.featureTable.dataConnection.workspaceConnectionString
-            new_connection_string = dummy_cim.featureTable.dataConnection.workspaceConnectionString
+            dummy_cim_data_connection = deep_get(dummy_cim, 'dataConnection', deep_get(dummy_cim, 'featureTable.dataConnection', None))
+            current_connection_string = data_connection.workspaceConnectionString
+            new_connection_string = dummy_cim_data_connection.workspaceConnectionString
 
             log.debug(
                 f'Updating connection properties for layer {layer.name}, dataset name: {dataset_name}, '
                 f'current connection string: \n{current_connection_string}, new connection string: \n{new_connection_string}'
             )
 
-            cim.featureTable.dataConnection.workspaceConnectionString = new_connection_string
+            data_connection.workspaceConnectionString = new_connection_string
             layer.setDefinition(cim)
-            map_.removeLayer(dummy_layer)
+            map_.removeTable(dummy_layer) if isinstance(dummy_cim, arcpy.cim.CIMVectorLayers.CIMStandaloneTable) else map_.removeLayer(dummy_layer)
     except Exception:
         log.exception(f'An error occurred while updating the data source for layer {layer.name}, workspace: {workspace}')
         raise
