@@ -335,6 +335,7 @@ def publish_services(
                             )
                         )
                         proc.start()
+                        log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for updating data sources for file {source_file_path}')
                         proc.join()
                         if proc.exitcode != 0:
                             raise RuntimeError(
@@ -369,36 +370,30 @@ def publish_services(
                         )
             else:
                 log.debug('Will skip copying source files from staging folder.')
-            procs = list()
+
+            errors = list()
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
-                proc = (
-                    multiprocessing.Process(
-                        target=logged_call,
-                        args=(
-                            log_queue,
-                            publish_service,
-                            service_name,
-                            service_type,
-                            source_dir,
-                            ags_instance,
-                            ags_connection,
-                            service_folder,
-                            service_properties,
-                            service_prefix,
-                            service_suffix
-                        )
-                    ),
-                    ags_instance
+                proc = multiprocessing.Process(
+                    target=logged_call,
+                    args=(
+                        log_queue,
+                        publish_service,
+                        service_name,
+                        service_type,
+                        source_dir,
+                        ags_instance,
+                        ags_connection,
+                        service_folder,
+                        service_properties,
+                        service_prefix,
+                        service_suffix
+                    )
                 )
-                proc[0].start()
-                procs.append(proc)
-            for proc, ags_instance in procs:
+                proc.start()
+                log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for publishing service {service_folder}/{service_name} to AGS instance {ags_instance}')
                 proc.join()
-
-            errors = list()
-            for proc, ags_instance in procs:
                 error_message = None
                 timestamp = datetime.datetime.now()
                 if proc.exitcode != 0:
@@ -407,7 +402,10 @@ def publish_services(
                         f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
                         f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
                     )
-                    errors.append(error_message)
+                    if not warn_on_publishing_errors:
+                        errors.append(error_message)
+                    else:
+                        raise RuntimeError(error_message)
                 else:
                     succeeded = True
                     if update_timestamps:
