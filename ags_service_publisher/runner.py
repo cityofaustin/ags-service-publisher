@@ -67,7 +67,8 @@ class Runner:
         warn_on_publishing_errors=False,
         warn_on_validation_errors=False,
         create_backups=True,
-        update_timestamps=True
+        update_timestamps=True,
+        delete_existing_services=False,
     ):
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
         log.info(f'Batch publishing configs: {", ".join(config_name for config_name in configs.keys())}')
@@ -89,7 +90,8 @@ class Runner:
                         warn_on_publishing_errors,
                         warn_on_validation_errors,
                         create_backups,
-                        update_timestamps
+                        update_timestamps,
+                        delete_existing_services,
                     ):
                         result['config_name'] = config_name
                         yield result

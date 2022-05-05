@@ -1,7 +1,9 @@
+import contextlib
 import datetime
 import getpass
 import multiprocessing
 import tempfile
+
 from pathlib import Path
 from shutil import copyfile, rmtree
 
@@ -40,7 +42,8 @@ def publish_config(
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
     create_backups=True,
-    update_timestamps=True
+    update_timestamps=True,
+    delete_existing_services=False,
 ):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
@@ -65,7 +68,8 @@ def publish_config(
                 warn_on_publishing_errors,
                 warn_on_validation_errors,
                 create_backups,
-                update_timestamps
+                update_timestamps,
+                delete_existing_services,
             ):
                 yield result
         else:
@@ -85,7 +89,8 @@ def publish_config_name(
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
     create_backups=True,
-    update_timestamps=True
+    update_timestamps=True,
+    delete_existing_services=False,
 ):
     config = get_config(config_name, config_dir)
     log.info(f'Publishing config {config_name}')
@@ -102,7 +107,8 @@ def publish_config_name(
         warn_on_publishing_errors,
         warn_on_validation_errors,
         create_backups,
-        update_timestamps
+        update_timestamps,
+        delete_existing_services,
     ):
         result['config_name'] = config_name
         yield result
@@ -121,7 +127,8 @@ def publish_env(
     warn_on_publishing_errors=False,
     warn_on_validation_errors=False,
     create_backups=True,
-    update_timestamps=True
+    update_timestamps=True,
+    delete_existing_services=False,
 ):
     env = config['environments'][env_name]
     source_dir = Path(env.get('source_dir')) if env.get('source_dir') else None
@@ -186,7 +193,8 @@ def publish_env(
             service_suffix,
             warn_on_publishing_errors,
             create_backups,
-            update_timestamps
+            update_timestamps,
+            delete_existing_services,
         ):
             yield result
     finally:
@@ -265,7 +273,8 @@ def publish_services(
     service_suffix='',
     warn_on_publishing_errors=False,
     create_backups=True,
-    update_timestamps=True
+    update_timestamps=True,
+    delete_existing_services=False,
 ):
     source_dir = Path(source_dir) if source_dir else None
     for (
@@ -375,60 +384,77 @@ def publish_services(
             for ags_instance in ags_instances:
                 ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
                 ags_connection = ags_instance_props['ags_connection']
-                proc = multiprocessing.Process(
-                    target=logged_call,
-                    args=(
-                        log_queue,
-                        publish_service,
-                        service_name,
-                        service_type,
-                        source_dir,
-                        ags_instance,
-                        ags_connection,
-                        service_folder,
-                        service_properties,
-                        service_prefix,
-                        service_suffix
-                    )
-                )
-                proc.start()
-                log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for publishing service {service_folder}/{service_name} to AGS instance {ags_instance}')
-                proc.join()
-                error_message = None
-                timestamp = datetime.datetime.now()
-                if proc.exitcode != 0:
-                    succeeded = False
-                    error_message = (
-                        f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
-                        f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
-                    )
-                    if not warn_on_publishing_errors:
-                        errors.append(error_message)
-                    else:
-                        raise RuntimeError(error_message)
-                else:
-                    succeeded = True
-                    if update_timestamps:
-                        set_publishing_summary(
-                            user_config,
-                            env_name,
-                            ags_instance,
+                server_url = ags_instance_props['url']
+                proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                token = ags_instance_props.get('token')
+                session_needed = update_timestamps or delete_existing_services
+                with create_session(server_url, proxies=proxies) if session_needed else contextlib.nullcontext() as session:
+                    if delete_existing_services:
+                        existing_services = list_services(server_url, token, service_folder, session=session)
+                        existing_service = None
+                        for service in existing_services:
+                            if service['serviceName'] == service_name and service['type'] == service_type:
+                                existing_service = service
+                                break
+                        if existing_service:
+                            log.debug(f'Deleting existing service {service_folder}/{service_name} on AGS instance {ags_instance}')
+                            delete_service(server_url, token, service_name, service_folder, service_type, session=session)
+
+                    proc = multiprocessing.Process(
+                        target=logged_call,
+                        args=(
+                            log_queue,
+                            publish_service,
                             service_name,
-                            service_folder,
                             service_type,
-                            timestamp
+                            source_dir,
+                            ags_instance,
+                            ags_connection,
+                            service_folder,
+                            service_properties,
+                            service_prefix,
+                            service_suffix
                         )
-                yield dict(
-                    env_name=env_name,
-                    ags_instance=ags_instance,
-                    service_folder=service_folder,
-                    service_name=service_name,
-                    service_type=service_type,
-                    file_path=file_path,
-                    succeeded=succeeded,
-                    error=error_message,
-                    timestamp=timestamp
-                )
+                    )
+                    proc.start()
+                    log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for publishing service {service_folder}/{service_name} to AGS instance {ags_instance}')
+                    proc.join()
+                    error_message = None
+                    timestamp = datetime.datetime.now()
+                    if proc.exitcode != 0:
+                        succeeded = False
+                        error_message = (
+                            f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
+                            f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
+                        )
+                        if not warn_on_publishing_errors:
+                            errors.append(error_message)
+                        else:
+                            raise RuntimeError(error_message)
+                    else:
+                        succeeded = True
+                        if update_timestamps:
+                            set_publishing_summary(
+                                user_config,
+                                env_name,
+                                ags_instance,
+                                service_name,
+                                service_folder,
+                                service_type,
+                                timestamp,
+                                session
+                            )
+                    yield dict(
+                        env_name=env_name,
+                        ags_instance=ags_instance,
+                        service_folder=service_folder,
+                        service_name=service_name,
+                        service_type=service_type,
+                        file_path=file_path,
+                        succeeded=succeeded,
+                        error=error_message,
+                        timestamp=timestamp
+                    )
             if len(errors) > 0 and not warn_on_publishing_errors:
                 log.error(
                     f'One or more errors occurred while publishing service {service_folder}/{service_name}, aborting.'
@@ -581,35 +607,34 @@ def set_publishing_summary(
     service_name,
     service_folder,
     service_type,
-    timestamp
+    timestamp,
+    session
 ):
     try:
         ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
         server_url = ags_instance_props['url']
         token = ags_instance_props['token']
-        proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-        with create_session(server_url, proxies=proxies) as session:
-            item_info = get_service_item_info(
-                server_url,
-                token,
-                service_name,
-                service_folder,
-                service_type,
-                session=session
-            )
-            item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y at %#I:%M:%S %p}'.format(
-                getpass.getuser(),
-                timestamp
-            )
-            set_service_item_info(
-                server_url,
-                token,
-                item_info,
-                service_name,
-                service_folder,
-                service_type,
-                session=session
-            )
+        item_info = get_service_item_info(
+            server_url,
+            token,
+            service_name,
+            service_folder,
+            service_type,
+            session=session
+        )
+        item_info['summary'] = 'Last published by {} on {:%#m/%#d/%y at %#I:%M:%S %p}'.format(
+            getpass.getuser(),
+            timestamp
+        )
+        set_service_item_info(
+            server_url,
+            token,
+            item_info,
+            service_name,
+            service_folder,
+            service_type,
+            session=session
+        )
     except Exception:
         log.warning(
             'An error occurred while updating timestamp for service {}/{} to ArcGIS Server instance {}'
