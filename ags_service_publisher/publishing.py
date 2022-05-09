@@ -44,6 +44,7 @@ def publish_config(
     create_backups=True,
     update_timestamps=True,
     delete_existing_services=False,
+    _publish_services=True,
 ):
     env_names = superfilter(config['environments'].keys(), included_envs, excluded_envs)
     if len(env_names) == 0:
@@ -70,10 +71,13 @@ def publish_config(
                 create_backups,
                 update_timestamps,
                 delete_existing_services,
+                _publish_services,
             ):
                 yield result
         else:
             log.warn(f'No publishable instances specified for environment {env_name}')
+    if not _publish_services:
+        log.debug('No services were published because _publish_services was false')
 
 
 def publish_config_name(
@@ -91,6 +95,7 @@ def publish_config_name(
     create_backups=True,
     update_timestamps=True,
     delete_existing_services=False,
+    _publish_services=True,
 ):
     config = get_config(config_name, config_dir)
     log.info(f'Publishing config {config_name}')
@@ -109,9 +114,12 @@ def publish_config_name(
         create_backups,
         update_timestamps,
         delete_existing_services,
+        _publish_services,
     ):
         result['config_name'] = config_name
         yield result
+    if not _publish_services:
+        log.debug('No services were published because _publish_services was false')
 
 
 def publish_env(
@@ -129,6 +137,7 @@ def publish_env(
     create_backups=True,
     update_timestamps=True,
     delete_existing_services=False,
+    _publish_services=True,
 ):
     env = config['environments'][env_name]
     source_dir = Path(env.get('source_dir')) if env.get('source_dir') else None
@@ -195,6 +204,7 @@ def publish_env(
             create_backups,
             update_timestamps,
             delete_existing_services,
+            _publish_services,
         ):
             yield result
     finally:
@@ -275,6 +285,7 @@ def publish_services(
     create_backups=True,
     update_timestamps=True,
     delete_existing_services=False,
+    _publish_services=True,
 ):
     source_dir = Path(source_dir) if source_dir else None
     for (
@@ -400,61 +411,62 @@ def publish_services(
                             log.debug(f'Deleting existing service {service_folder}/{service_name} on AGS instance {ags_instance}')
                             delete_service(server_url, token, service_name, service_folder, service_type, session=session)
 
-                    proc = multiprocessing.Process(
-                        target=logged_call,
-                        args=(
-                            log_queue,
-                            publish_service,
-                            service_name,
-                            service_type,
-                            source_dir,
-                            ags_instance,
-                            ags_connection,
-                            service_folder,
-                            service_properties,
-                            service_prefix,
-                            service_suffix
-                        )
-                    )
-                    proc.start()
-                    log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for publishing service {service_folder}/{service_name} to AGS instance {ags_instance}')
-                    proc.join()
-                    error_message = None
-                    timestamp = datetime.datetime.now()
-                    if proc.exitcode != 0:
-                        succeeded = False
-                        error_message = (
-                            f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
-                            f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
-                        )
-                        if not warn_on_publishing_errors:
-                            errors.append(error_message)
-                        else:
-                            raise RuntimeError(error_message)
-                    else:
-                        succeeded = True
-                        if update_timestamps:
-                            set_publishing_summary(
-                                user_config,
-                                env_name,
-                                ags_instance,
+                    if _publish_services:
+                        proc = multiprocessing.Process(
+                            target=logged_call,
+                            args=(
+                                log_queue,
+                                publish_service,
                                 service_name,
-                                service_folder,
                                 service_type,
-                                timestamp,
-                                session
+                                source_dir,
+                                ags_instance,
+                                ags_connection,
+                                service_folder,
+                                service_properties,
+                                service_prefix,
+                                service_suffix
                             )
-                    yield dict(
-                        env_name=env_name,
-                        ags_instance=ags_instance,
-                        service_folder=service_folder,
-                        service_name=service_name,
-                        service_type=service_type,
-                        file_path=file_path,
-                        succeeded=succeeded,
-                        error=error_message,
-                        timestamp=timestamp
-                    )
+                        )
+                        proc.start()
+                        log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for publishing service {service_folder}/{service_name} to AGS instance {ags_instance}')
+                        proc.join()
+                        error_message = None
+                        timestamp = datetime.datetime.now()
+                        if proc.exitcode != 0:
+                            succeeded = False
+                            error_message = (
+                                f'An error occurred in subprocess {proc.name} (pid {proc.pid}, exitcode {proc.exitcode}) '
+                                f'while publishing service {service_folder}/{service_name} to AGS instance {ags_instance}'
+                            )
+                            if not warn_on_publishing_errors:
+                                errors.append(error_message)
+                            else:
+                                raise RuntimeError(error_message)
+                        else:
+                            succeeded = True
+                            if update_timestamps:
+                                set_publishing_summary(
+                                    user_config,
+                                    env_name,
+                                    ags_instance,
+                                    service_name,
+                                    service_folder,
+                                    service_type,
+                                    timestamp,
+                                    session
+                                )
+                        yield dict(
+                            env_name=env_name,
+                            ags_instance=ags_instance,
+                            service_folder=service_folder,
+                            service_name=service_name,
+                            service_type=service_type,
+                            file_path=file_path,
+                            succeeded=succeeded,
+                            error=error_message,
+                            timestamp=timestamp
+                        )
             if len(errors) > 0 and not warn_on_publishing_errors:
                 log.error(
                     f'One or more errors occurred while publishing service {service_folder}/{service_name}, aborting.'

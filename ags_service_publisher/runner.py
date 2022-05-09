@@ -69,6 +69,7 @@ class Runner:
         create_backups=True,
         update_timestamps=True,
         delete_existing_services=False,
+        publish_services=True,
     ):
         configs = get_configs(included_configs, excluded_configs, self.config_dir)
         log.info(f'Batch publishing configs: {", ".join(config_name for config_name in configs.keys())}')
@@ -92,6 +93,7 @@ class Runner:
                         create_backups,
                         update_timestamps,
                         delete_existing_services,
+                        publish_services,
                     ):
                         result['config_name'] = config_name
                         yield result
