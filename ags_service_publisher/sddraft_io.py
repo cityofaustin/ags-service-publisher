@@ -1,3 +1,5 @@
+import json
+
 from xml.etree import ElementTree
 
 from .helpers import snake_case_to_pascal_case
@@ -22,6 +24,7 @@ def modify_sddraft(sddraft, service_properties=None):
     keep_existing_cache = service_properties.get('keep_existing_cache', False)
     feature_access = service_properties.get('feature_access')
     calling_context = service_properties.get('calling_context')
+    java_heap_size = service_properties.get('java_heap_size')
 
     if feature_access:
         log.debug('Feature access properties specified')
@@ -61,6 +64,21 @@ def modify_sddraft(sddraft, service_properties=None):
         tree.find(
             "./StagingSettings/PropertyArray/PropertySetProperty[Key='CallingContext']/Value"
         ).text = str(calling_context)
+
+    # Set Java heap size
+    if java_heap_size is not None:
+        log.debug(f'Setting Java heap size to {java_heap_size}')
+        service_properties_array = tree.find("./Configurations/SVCConfiguration/Definition/Props/PropertyArray")
+        framework_properties_element = service_properties_array.find("./PropertySetProperty[Key='frameworkProperties']")
+        if framework_properties_element:
+            framework_properties = json.loads(framework_properties_element.find('Value').text)
+            framework_properties['javaHeapSize'] = str(java_heap_size)
+            framework_properties_element.find('Value').text = json.dumps(framework_properties)
+        else:
+            framework_properties_element = ElementTree.SubElement(service_properties_array, 'PropertySetProperty', {'xsi:type': 'typens:PropertySetProperty'})
+            ElementTree.SubElement(framework_properties_element, 'Key').text = 'frameworkProperties'
+            framework_properties = {'javaHeapSize': str(java_heap_size)}
+            ElementTree.SubElement(framework_properties_element, 'Value', {'xsi:type': 'xs:string'}).text = json.dumps(framework_properties)
 
     # Replace the service if specified
     if replace_service:

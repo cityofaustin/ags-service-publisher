@@ -527,6 +527,7 @@ Additionally, the following "special" service properties are recognized:
         - `delete`
         - `uploads`
         - `editing`
+- `java_heap_size`: Size in megabytes to set the service's Java heap size, as described in the [Framework Properties][13] section of the Create Service operation in the ArcGIS REST API help (requires ArcGIS Enterprise 10.7+)
 
 Service properties may be set at multiple different "levels", allowing you to define properties applicable to all services, specific environments, or specific services.
 
@@ -617,3 +618,4 @@ Additionally, we waive copyright and related rights in the work worldwide throug
 [10]: http://server.arcgis.com/en/server/latest/publish-services/windows/00001-data-frame-does-not-have-layers.htm
 [11]: http://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-server-site-mode.htm
 [12]: http://docs.python-requests.org/en/master/user/advanced/#proxies
+[13]: https://developers.arcgis.com/rest/enterprise-administration/server/createservice.htm#GUID-8681200E-44B9-4F1A-A208-E1F3E155E990
