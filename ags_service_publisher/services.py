@@ -321,6 +321,7 @@ def list_service_layer_fields(
                                 if not arcpy.Exists(file_path):
                                     raise RuntimeError(f'{file_type} {file_path} does not exist!')
                                 try:
+                                    tempdir = None
                                     if file_path.suffix.lower() == '.aprx':
                                         aprx = open_aprx(file_path)
                                     elif file_path.suffix.lower() == '.mxd':
