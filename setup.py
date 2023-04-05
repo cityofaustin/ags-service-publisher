@@ -8,6 +8,9 @@ setup(
         'requests',
         'PyYAML',
     ],
-    py_modules=[],
+    packages=[
+        'ags_service_publisher',
+        'ags_service_publisher.reporters',
+    ],
     use_scm_version=True,
 )
