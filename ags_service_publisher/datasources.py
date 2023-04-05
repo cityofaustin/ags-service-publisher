@@ -46,7 +46,7 @@ def open_aprx(aprx_path):
 
 def convert_mxd_to_aprx(mxd_path, aprx_path):
     log.info(f'Converting MXD {mxd_path} to ArcGIS Pro project file {aprx_path}')
-    blank_aprx_path = Path(__file__) / '../../resources/arcgis/projects/blank/blank.aprx'
+    blank_aprx_path = Path(__file__) / '../resources/arcgis/projects/blank/blank.aprx'
     blank_aprx_path = blank_aprx_path.resolve()
     blank_aprx = open_aprx(blank_aprx_path)
     blank_aprx.importDocument(mxd_path)
