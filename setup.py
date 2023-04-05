@@ -12,5 +12,6 @@ setup(
         'ags_service_publisher',
         'ags_service_publisher.reporters',
     ],
+    include_package_data=True,
     use_scm_version=True,
 )
