@@ -8,5 +8,6 @@ setup(
         'requests',
         'PyYAML',
     ],
+    py_modules=[],
     use_scm_version=True,
 )
