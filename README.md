@@ -20,20 +20,32 @@ of your ArcGIS Server instances.
 
 ## Requirements
 
-- Windows 10+
-- ArcGIS Pro 2.4+
-- Python 3.6+
-- [pip 19.3+][2]
+- Windows 10
+- ArcGIS Pro 3.1
+- Python 3.9.16
+- [pip 22.2.2][2]
+- [Git for Windows][14] 2.40.0
 - Various Python libraries (will be installed by pip as described in the [Installation](#installation) section):
-    - [PyYAML][3] 5.12
-    - [requests][4] 2.22
+    - [PyYAML][3] 6.0
+    - [requests][4] 2.28.1
 
 ## Installation
 
-1. Clone this repository to a local directory
-2. Add Python scripts directory to your PATH environment variable.  This is typically located at C:\Python(version)\ArcGIS(version)\Scripts 
-3. Open a Windows command prompt in the local directory
-4. Type `pip install -e .`
+ArcGIS Pro uses the concept of [conda][15] environments to manage and isolate Python packages. The default conda environment included with ArcGIS Pro is read-only, so we will create a new environment by cloning the default one.
+
+1. Open a Windows command prompt in a local directory where you want to install the library and create a new conda environment.
+
+2. Create a clone of the ArcGIS Pro default conda environment:
+
+    `conda create --clone "C:\Program Files\ArcGIS\Pro\bin\Python\envs\arcgispro-py3" --prefix .\arcgispro-py3-clone`
+
+3. Activate the cloned environment:
+
+    `conda activate .\arcgispro-py3-clone`
+
+4. Install the `ags-service-publisher` library:
+
+    `pip install git+https://github.com/cityofaustin/ags-service-publisher.git@python-3#egg=ags-service-publisher`
 
 ## Configuration
 
@@ -347,7 +359,7 @@ Useful for determining which services are stopped, running slowly, or returning 
 
 #### Service Analysis Report
 
-This report type queries ArcGIS Server for a list of MapServer or GeocodeServer services, finds the source file (MXD or locator) used to publish that service, and then runs the [Analyze][9] step of service publishing against that file, reporting any issues it finds. You can look up the [error codes][10] in the ArcGIS Server Help for more information about them.
+This report type queries ArcGIS Server for a list of MapServer or GeocodeServer services, finds the source file (MXD, APRX or locator) used to publish that service, and then runs the [Analyze][9] step of service publishing against that file, reporting any issues it finds. You can look up the [error codes][10] in the ArcGIS Server Help for more information about them.
 
 Useful for determining possible performance or other issues with published services.
 
@@ -401,13 +413,13 @@ Matches are made case-sensitively by default; set the optional keyword argument 
 
 #### Service Layer Fields Report
 
-This report type queries ArcGIS Server for a list of MapServer services, finds the source MXD used to publish each service, and for each layer in the MXD, reports information about its data source, labels, symbology, fields and indexes.
+This report type queries ArcGIS Server for a list of MapServer services, finds the source APRX/MXD used to publish each service, and for each layer in the APRX/MXD, reports information about its data source, labels, symbology, fields and indexes.
 
 Useful for determining which fields are being used by a service and whether they are indexed or should be indexed.
 
 The report will output one record for each field in a given service layer, showing whether it has labeling enabled, its symbology type, the field name, field type, whether the field is indexed or should be indexed based on various criteria such as being referenced in the definition query, label classes, or symbology. Shape fields without a spatial index will be indicated as needing an index.
 
-**Note:**  The `warn_on_errors` argument can be set to `True` (i.e. `warn_on_errors=True`) when running this and many other functions of AGS Service Publisher. An error can occur while running this report if the MXD referenced by a service is not accessible. If this occurs, setting `warn_on_errors` to `True` will cause the script to report the error and continue with the rest of the services.
+**Note:**  The `warn_on_errors` argument can be set to `True` (i.e. `warn_on_errors=True`) when running this and many other functions of AGS Service Publisher. An error can occur while running this report if the APRX/MXD referenced by a service is not accessible. If this occurs, setting `warn_on_errors` to `True` will cause the script to report the error and continue with the rest of the services.
 
 ##### Examples:
 
@@ -607,15 +619,17 @@ As a work of the City of Austin, this project is in the public domain within the
 Additionally, we waive copyright and related rights in the work worldwide through the [CC0 1.0 Universal public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
 
 [1]: https://en.wikipedia.org/wiki/YAML
-[2]: https://pip.pypa.io/en/stable/installing/
-[3]: https://pypi.python.org/pypi/PyYAML
-[4]: http://docs.python-requests.org/en/master/
-[5]: http://resources.arcgis.com/en/help/arcgis-rest-api/index.html#/API_Security/02r3000001z7000000/
-[6]: http://desktop.arcgis.com/en/arcmap/latest/analyze/arcpy-mapping/createmapsddraft.htm
-[7]: http://desktop.arcgis.com/en/arcmap/latest/tools/server-toolbox/generate-map-server-cache-tiling-scheme.htm
+[2]: https://pip.pypa.io/en/stable/installation/
+[3]: https://pypi.org/project/PyYAML/
+[4]: https://docs.python-requests.org/en/latest/
+[5]: https://developers.arcgis.com/rest/enterprise-administration/server/apisecurity.htm
+[6]: https://pro.arcgis.com/en/pro-app/latest/arcpy/sharing/createsharingdraft.htm
+[7]: https://pro.arcgis.com/en/pro-app/latest/tool-reference/server/generate-map-server-cache-tiling-scheme.htm
 [8]: https://docs.python.org/3/library/fnmatch.html
-[9]: http://server.arcgis.com/en/server/latest/publish-services/windows/analyzing-your-gis-resource.htm
-[10]: http://server.arcgis.com/en/server/latest/publish-services/windows/00001-data-frame-does-not-have-layers.htm
-[11]: http://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-server-site-mode.htm
-[12]: http://docs.python-requests.org/en/master/user/advanced/#proxies
+[9]: https://pro.arcgis.com/en/pro-app/latest/help/sharing/overview/analyze-your-gis-resource.htm
+[10]: https://pro.arcgis.com/en/pro-app/latest/help/sharing/analyzer-error-messages/
+[11]: https://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-server-site-mode.htm
+[12]: https://docs.python-requests.org/en/latest/user/advanced/#proxies
 [13]: https://developers.arcgis.com/rest/enterprise-administration/server/createservice.htm#GUID-8681200E-44B9-4F1A-A208-E1F3E155E990
+[14]: https://gitforwindows.org/
+[15]: https://pro.arcgis.com/en/pro-app/latest/arcpy/get-started/what-is-conda.htm
