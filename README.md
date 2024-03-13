@@ -33,15 +33,15 @@ of your ArcGIS Server instances.
 
 ArcGIS Pro uses the concept of [conda][15] environments to manage and isolate Python packages. The default conda environment included with ArcGIS Pro is read-only, so we will create a new environment by cloning the default one.
 
-1. Open a Windows command prompt in a local directory where you want to install the library and create a new conda environment.
+1. From the start menu, run the ArcGIS->Python Command Prompt shortcut.
 
-2. Create a clone of the ArcGIS Pro default conda environment:
+2. Create a clone of the ArcGIS Pro default conda environment (change `<path_to_local_directory>` to a directory of your choosing):
 
-    `conda create --clone "C:\Program Files\ArcGIS\Pro\bin\Python\envs\arcgispro-py3" --prefix .\arcgispro-py3-clone`
+    `conda create --clone arcgispro-py3 --prefix <path_to_local_directory>\arcgispro-py3-clone --no-shortcuts --pinned`
 
 3. Activate the cloned environment:
 
-    `conda activate .\arcgispro-py3-clone`
+    `activate <path_to_local_directory>\arcgispro-py3-clone`
 
 4. Install the `ags-service-publisher` library:
 
@@ -540,6 +540,19 @@ Additionally, the following "special" service properties are recognized:
         - `uploads`
         - `editing`
 - `java_heap_size`: Size in megabytes to set the service's Java heap size, as described in the [Framework Properties][13] section of the Create Service operation in the ArcGIS REST API help (requires ArcGIS Enterprise 10.7+)
+- `recreate_network_dataset`: Whether to recreate a network dataset before publishing a service. The network dataset must be in a file geodatabase. When this is `true`, the following additional properties are required:
+    - `network_dataset_path`: The fully-qualified path to the network dataset.
+    - `network_dataset_template`: The fuly-qualified path to a network dataset template file in XML format as produced by the [Create Template From Network Dataset][16] geoprocessing tool.
+    - `network_data_sources`: A set of key-value pairs defining the feature classes participating in the network dataset and their data source. Each key is the name of the feature class participating in the network dataset, and each value is the fully-qualified path to the source feature class from which to copy features into the network's feature dataset.
+- `update_network_analysis_layers`: Whether to update the features in one more more network analysis layers in a map before publishing a service. When this is `true`, the following additional property is required:
+    - `network_analysis_layers`: A nested set of key-value pairs defining the network analysis layer names, the names of the sub-layers to update, and for each sub-layer, the fully-qualified `data_source` path and an optional `where_clause`.
+- `date_field_settings`: A set of key-value pairs specifying any or all of the following date field [map service settings][17]:
+    - `date_fields_respects_daylight_saving_time`
+    - `date_fields_time_zone_id`
+    - `dates_in_unknown_time_zone`
+    - `preferred_time_zone_id`
+    - `preferred_time_zone_respects_daylight_saving_time`
+- `extensions`: A nested set of key-value pairs defining which [server extensions][18], e.g. `NAServer`, to enable and any extension-specific properties to set. To enable an extension, define the `enabled` key with a value of `true`.
 
 Service properties may be set at multiple different "levels", allowing you to define properties applicable to all services, specific environments, or specific services.
 
@@ -633,3 +646,6 @@ Additionally, we waive copyright and related rights in the work worldwide throug
 [13]: https://developers.arcgis.com/rest/enterprise-administration/server/createservice.htm#GUID-8681200E-44B9-4F1A-A208-E1F3E155E990
 [14]: https://gitforwindows.org/
 [15]: https://pro.arcgis.com/en/pro-app/latest/arcpy/get-started/what-is-conda.htm
+[16]: https://pro.arcgis.com/en/pro-app/latest/tool-reference/network-analyst/create-template-from-network-dataset.htm
+[17]: https://enterprise.arcgis.com/en/server/latest/publish-services/windows/edit-map-service-settings.htm
+[18]: https://enterprise.arcgis.com/en/server/latest/get-started/windows/server-extensions.htm

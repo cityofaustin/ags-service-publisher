@@ -390,6 +390,75 @@ def publish_services(
                         )
             else:
                 log.debug('Will skip copying source files from staging folder.')
+            
+            if service_properties.get('recreate_network_dataset'):
+                network_dataset_path = Path(service_properties.get('network_dataset_path'))
+                log.info(f'Recreating network dataset {network_dataset_path}')
+
+                # Delete existing services before attempting to recreate network dataset, otherwise there could be locks preventing it from being deleted cleanly
+                if delete_existing_services:
+                    for ags_instance in ags_instances:
+                        ags_instance_props = user_config['environments'][env_name]['ags_instances'][ags_instance]
+                        ags_connection = ags_instance_props['ags_connection']
+                        server_url = ags_instance_props['url']
+                        proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                        token = ags_instance_props.get('token')
+                        session_needed = delete_existing_services
+                        with create_session(server_url, proxies=proxies) as session:
+                            existing_services = list_services(server_url, token, service_folder, session=session)
+                            existing_service = None
+                            for service in existing_services:
+                                if service['serviceName'] == service_name and service['type'] == service_type:
+                                    existing_service = service
+                                    break
+                            if existing_service:
+                                log.debug(f'Deleting existing service {service_folder}/{service_name} on AGS instance {ags_instance}')
+                                delete_service(server_url, token, service_name, service_folder, service_type, session=session)
+                    # Avoid attempting to delete the services a second time
+                    delete_existing_services = False
+                network_dataset_template_path = Path(service_properties.get('network_dataset_template'))
+                network_data_sources = service_properties.get('network_data_sources')
+                proc = multiprocessing.Process(
+                    target=logged_call,
+                    args=(
+                        log_queue,
+                        recreate_network_dataset,
+                        network_dataset_path,
+                        network_dataset_template_path,
+                        network_data_sources,
+                    )
+                )
+                proc.start()
+                log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for recreating network dataset {network_dataset_path}')
+                proc.join()
+                if proc.exitcode != 0:
+                    raise RuntimeError(
+                        f'An error occurred in subprocess {proc.name} (pid {proc.pid}) '
+                        f'while recreating network dataset {network_dataset_path}'
+                    )
+                del proc
+            
+            if service_properties.get('update_network_analysis_layers'):
+                network_analysis_layers = service_properties.get('network_analysis_layers')
+                log.info(f'Updating network analysis layers in {file_path}')
+                proc = multiprocessing.Process(
+                    target=logged_call,
+                    args=(
+                        log_queue,
+                        update_network_analysis_layers,
+                        file_path,
+                        network_analysis_layers,
+                    )
+                )
+                proc.start()
+                log.debug(f'Initializing subprocess {proc.name} (pid {proc.pid}) for updating network analysis layers in {file_path}')
+                proc.join()
+                if proc.exitcode != 0:
+                    raise RuntimeError(
+                        f'An error occurred in subprocess {proc.name} (pid {proc.pid}) '
+                        f'while updating network analysis layers in {file_path}'
+                    )
+                del proc
 
             errors = list()
             for ags_instance in ags_instances:
@@ -473,6 +542,127 @@ def publish_services(
                 )
                 raise RuntimeError(errors)
 
+def recreate_network_dataset(network_dataset_path, network_dataset_template_path, network_data_sources):
+    log.debug(f'Recreating network dataset {str(network_dataset_path)}')
+    network_fds_path = network_dataset_path.parent
+    network_fgdb_path = network_fds_path.parent
+
+    tempdir = Path(tempfile.mkdtemp())
+    log.debug(f'Temporary directory created: {tempdir}')
+    try:
+        log.debug('Importing arcpy...')
+        try:
+            import arcpy
+        except Exception:
+            log.exception('An error occurred importing arcpy')
+            raise
+        log.debug('Successfully imported arcpy')
+        arcpy.CheckOutExtension('Network')
+        temp_fgdb_path = tempdir / network_fds_path.parent.name
+        temp_fds_path = temp_fgdb_path / network_fds_path.name
+        temp_network_dataset_path = temp_fds_path / network_dataset_path.name
+        throw_if_fgdb_in_use(network_fgdb_path)
+        log.debug(f'Copying {network_fgdb_path} to temporary file geodatabase {temp_fgdb_path}')
+        arcpy.management.Copy(str(network_fgdb_path), str(temp_fgdb_path))
+        log.debug(f'Deleting temporary feature dataset {temp_fds_path}')
+        arcpy.management.Delete(str(temp_fds_path))
+        log.debug(f'Creating temporary feature dataset {temp_fds_path}')
+        arcpy.management.CreateFeatureDataset(
+            out_dataset_path=str(temp_fgdb_path),
+            out_name=network_fds_path.name,
+            spatial_reference=str(network_fds_path)
+        )
+        for fc_name, network_data_source in network_data_sources.items():
+            temp_fc_path = temp_fds_path / fc_name
+            log.debug(f'Copying source network features from {network_data_source} to {temp_fc_path}')
+            arcpy.management.CopyFeatures(
+                in_features=network_data_source,
+                out_feature_class=str(temp_fc_path),
+            )
+        log.debug(f'Creating network dataset {temp_network_dataset_path} from template file {network_dataset_template_path}')
+        arcpy.na.CreateNetworkDatasetFromTemplate(
+            network_dataset_template=str(network_dataset_template_path),
+            output_feature_dataset=str(temp_fds_path)
+        )
+        log.debug(f'Building network dataset {temp_network_dataset_path}')
+        arcpy.na.BuildNetwork(in_network_dataset=str(temp_network_dataset_path))
+        log.debug(f'Copying temporary file geodatabase {temp_fgdb_path} to {network_fgdb_path}')
+        throw_if_fgdb_in_use(network_fgdb_path)
+        with arcpy.EnvManager(overwriteOutput=True):
+            arcpy.management.Copy(str(temp_fgdb_path), str(network_fgdb_path))
+    except Exception:
+        log.exception(f'An error occurred while recreating network dataset {network_dataset_path}')
+        raise
+    finally:
+        log.debug(f'Cleaning up temporary directory: {tempdir}')
+        rmtree(tempdir, ignore_errors=True)
+        arcpy.CheckInExtension('Network')
+
+def throw_if_fgdb_in_use(fgdb_path: Path):
+    if check_fgdb_has_locks(fgdb_path):
+        raise RuntimeError(f'File geodatabase {fgdb_path} has locks')
+    if check_dir_files_in_use(fgdb_path):
+        raise RuntimeError(f'File geodatabase {fgdb_path} has files in use')
+
+def check_fgdb_has_locks(fgdb_path: Path):
+    return sum(1 for _ in fgdb_path.glob('*.lock')) > 0
+
+def check_dir_files_in_use(dir_path: Path):
+    dir_files_in_use = False
+    for filepath in dir_path.glob('**/*'):
+        if check_file_in_use(filepath):
+            dir_files_in_use = True
+            break
+    return dir_files_in_use
+
+def check_file_in_use(filepath: Path):
+    if filepath.is_file():
+        try:
+            filepath.rename(filepath)
+        except PermissionError:
+            log.warn(f'File {filepath} is in use')
+            return True
+    return False
+
+def update_network_analysis_layers(aprx_path, network_analysis_layers):
+    log.debug('Importing arcpy...')
+    try:
+        import arcpy
+    except Exception:
+        log.exception('An error occurred importing arcpy')
+        raise
+    log.debug('Successfully imported arcpy')
+    try:
+        arcpy.CheckOutExtension('Network')
+        log.debug(f'Updating network analysis layers in {aprx_path}')
+        aprx = arcpy.mp.ArcGISProject(aprx_path)
+        map_ = aprx.listMaps()[0]
+        needs_save = False
+        for analysis_layer, sub_layers in network_analysis_layers.items():
+            layer = map_.listLayers(analysis_layer)[0]
+            log.debug(f'Updating network analysis layer {analysis_layer}')
+            for sub_layer, sub_layer_properties in sub_layers.items():
+                data_source = sub_layer_properties.get('data_source')
+                where_clause = sub_layer_properties.get('where_clause')
+                log.debug(f'Updating network analysis sub layer {sub_layer} using data source {data_source}')
+                arcpy.management.MakeFeatureLayer(
+                    in_features=data_source,
+                    out_layer=f'{sub_layer}_temp',
+                    where_clause=where_clause
+                )
+                arcpy.na.AddLocations(
+                    in_network_analysis_layer=layer,
+                    sub_layer=sub_layer,
+                    in_table=f'{sub_layer}_temp',
+                    append='CLEAR',
+                )
+                arcpy.management.Delete(f'{sub_layer}_temp')
+                needs_save = True
+        if needs_save:
+            log.debug(f'Saving APRX file {aprx_path}')
+            aprx.save()
+    finally:
+        arcpy.CheckInExtension('Network')
 
 def publish_service(
     service_name,
