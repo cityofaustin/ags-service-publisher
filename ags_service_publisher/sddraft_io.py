@@ -37,7 +37,7 @@ def modify_sddraft(sddraft, service_properties=None):
         'recreate_network_dataset',
         'update_network_analysis_layers',
     ):
-        service_properties.pop(property)
+        service_properties.pop(property, None)
 
     if date_field_settings:
         log.debug('Date field settings specified')
