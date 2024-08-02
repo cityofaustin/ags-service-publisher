@@ -284,7 +284,8 @@ class Runner:
                 ags_instance_props = env['ags_instances'][ags_instance]
                 server_url = ags_instance_props['url']
                 proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-                with create_session(server_url, proxies=proxies) as session:
+                ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+                with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                     new_token = generate_token(server_url, username, password, expiration, ags_instance, session=session)
                     if new_token:
                         ags_instance_props['token'] = new_token

@@ -18,11 +18,11 @@ from .logging_io import setup_logger
 log = setup_logger(__name__)
 
 
-def create_session(server_url, proxies=None):
+def create_session(server_url, proxies=None, ciphers=None):
     session = requests.Session()
     if proxies:
         session.proxies = proxies
-    adapter = SSLContextAdapter()
+    adapter = SSLContextAdapter(ciphers=ciphers)
     session.mount(server_url, adapter)
     return session
 
@@ -924,14 +924,18 @@ def analyze_staging_result(result):
 
 # Adapted from https://stackoverflow.com/a/50215614
 class SSLContextAdapter(HTTPAdapter):
+    def __init__(self, ciphers=None, **kwargs):
+        self.ssl_context = create_default_context()
+        if ciphers:
+            log.debug(f'Using ciphers: {ciphers}')
+            self.ssl_context.set_ciphers(ciphers) # set the ciphers allowed for this context, refer to https://docs.openssl.org/master/man1/openssl-ciphers/
+        self.ssl_context.load_default_certs() # this loads the OS defaults on Windows
+        super().__init__(**kwargs)
+
     def init_poolmanager(self, *args, **kwargs):
-        context = create_default_context()
-        kwargs['ssl_context'] = context
-        context.load_default_certs() # this loads the OS defaults on Windows
+        kwargs['ssl_context'] = self.ssl_context
         self.poolmanager = PoolManager(*args, **kwargs)
 
     def proxy_manager_for(self, *args, **kwargs):
-        context = create_default_context()
-        kwargs['ssl_context'] = context
-        context.load_default_certs() # this loads the OS defaults on Windows
+        kwargs['ssl_context'] = self.ssl_context
         return super(SSLContextAdapter, self).proxy_manager_for(*args, **kwargs)

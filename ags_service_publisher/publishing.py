@@ -224,7 +224,8 @@ def get_site_modes(ags_instances, env_name, user_config):
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 current_site_mode = get_site_mode(server_url, token, session=session)
                 result[ags_instance] = current_site_mode
     return result
@@ -238,8 +239,9 @@ def make_sites_editable(ags_instances, env_name, user_config, initial_site_modes
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
             if initial_site_modes[ags_instance] != 'EDITABLE':
-                with create_session(server_url, proxies=proxies) as session:
+                with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                     set_site_mode(server_url, token, 'EDITABLE', session=session)
 
 
@@ -251,7 +253,8 @@ def restore_site_modes(ags_instances, env_name, user_config, initial_site_modes)
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 current_site_mode = get_site_mode(server_url, token, session=session)
                 if site_mode.upper() == 'INITIAL':
                     if current_site_mode != initial_site_modes[ags_instance]:
@@ -402,9 +405,10 @@ def publish_services(
                         ags_connection = ags_instance_props['ags_connection']
                         server_url = ags_instance_props['url']
                         proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                        ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
                         token = ags_instance_props.get('token')
                         session_needed = delete_existing_services
-                        with create_session(server_url, proxies=proxies) as session:
+                        with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                             existing_services = list_services(server_url, token, service_folder, session=session)
                             existing_service = None
                             for service in existing_services:
@@ -466,9 +470,10 @@ def publish_services(
                 ags_connection = ags_instance_props['ags_connection']
                 server_url = ags_instance_props['url']
                 proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
+                ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
                 token = ags_instance_props.get('token')
                 session_needed = update_timestamps or delete_existing_services
-                with create_session(server_url, proxies=proxies) if session_needed else contextlib.nullcontext() as session:
+                with create_session(server_url, proxies=proxies, ciphers=ciphers) if session_needed else contextlib.nullcontext() as session:
                     if delete_existing_services:
                         existing_services = list_services(server_url, token, service_folder, session=session)
                         existing_service = None
@@ -894,7 +899,8 @@ def cleanup_instance(
     server_url = ags_instance_props['url']
     token = ags_instance_props['token']
     proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-    with create_session(server_url, proxies=proxies) as session:
+    ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+    with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
         existing_services = list_services(server_url, token, service_folder, session=session)
         services_to_remove = [service for service in existing_services if service['serviceName'] not in configured_services]
         log.info(

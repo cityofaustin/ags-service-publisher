@@ -53,7 +53,8 @@ def generate_service_inventory(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):
@@ -87,7 +88,8 @@ def generate_data_stores_inventory(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 data_stores = list_data_stores(server_url, token, session=session)
                 for data_store in data_stores:
                     yield dict(
@@ -125,7 +127,8 @@ def analyze_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):
@@ -290,7 +293,8 @@ def list_service_layer_fields(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):
@@ -431,7 +435,8 @@ def find_service_dataset_usages(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):
@@ -489,7 +494,8 @@ def restart_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):
@@ -531,7 +537,8 @@ def test_services(
             server_url = ags_instance_props['url']
             token = ags_instance_props['token']
             proxies = ags_instance_props.get('proxies') or user_config.get('proxies')
-            with create_session(server_url, proxies=proxies) as session:
+            ciphers = ags_instance_props.get('ciphers') or user_config.get('ciphers')
+            with create_session(server_url, proxies=proxies, ciphers=ciphers) as session:
                 service_folders = list_service_folders(server_url, token, session=session)
                 for service_folder in superfilter(service_folders, included_service_folders, excluded_service_folders):
                     for service in list_services(server_url, token, service_folder, session=session):

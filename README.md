@@ -66,11 +66,15 @@ ArcGIS Pro uses the concept of [conda][15] environments to manage and isolate Py
           - `initial`: Sets the site mode to editable before publishing and restores it to the initial site mode after publishing.
         
           **Note:** Specifying a `site_mode` requires a valid `token` to be set for a user with Administrator privileges on the site.
-        - `proxies` (optional): If specified, uses a proxy to connect to the ArcGIS Server instance. See the [Python Requests][12] documentation for details. Overrides any values set by the top-level `proxies` key.
+        - `proxies` (optional): Specifies a proxy to connect to the ArcGIS Server instance. See the [Python Requests][12] documentation for details. Overrides any values set by the top-level `proxies` key.
+        - `ciphers` (optional): Specifies the list of allowed SSL ciphers used to connect to the HTTPS-secured ArcGIS Server instance. See the [OpenSSL ciphers documentation][19] for details. Overrides any values set by the top-level `ciphers` key.
     - `sde_connnections_dir` (optional): path to a directory containing any SDE connection files you want to
         [import](#import-sde-connection-files) to each of the instances in that environment
 
-    You may also optionally create a top-level `proxies` key to specify any proxy servers you need to use to connect to ArcGIS Server. See the [Python Requests][12] documentation for details. May be overriden by the `proxies` key of individual ArcGIS Server instances`.
+    The following additional top-level keys are also recognized:
+    
+    - `proxies` (optional): Specifies a proxy to connect to all ArcGIS Server instances. See the [Python Requests][12] documentation for details. May be overriden by the `proxies` key of individual ArcGIS Server instances.
+    - `ciphers` (optional): Specifies the list of allowed SSL ciphers used to connect to all HTTPS-secured ArcGIS Server instances. See the [OpenSSL ciphers documentation][19] for details. May be overridden by the `ciphers` key of individual ArcGIS Server instances.
 3. Create additional configuration files for each service folder you want to publish. Configuration files must have a
     `.yml` extension.
     1. Create a top-level `service_folder` key with the name of the service folder as its value.
@@ -162,6 +166,7 @@ environments:
         ags_connection: C:\Users\pughl\AppData\Roaming\ESRI\Desktop10.3\ArcCatalog\coagisd2-pughl (admin).ags
         proxies: # Instance-specific proxy settings
           http: proxy-example.com:4567
+        ciphers: DEFAULT:@SECLEVEL=1 # Instance-specific cipher settings
     sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntDev\Service-Connections
   test:
     ags_instances:
@@ -189,6 +194,7 @@ environments:
     sde_connections_dir: \\coacd.org\gis\AGS\Config\AgsEntProd\Service-Connections
 proxies: # Top-level proxy settings
   http: proxy-example.com:1234
+ciphers: DEFAULT:@SECLEVEL=1 # Top-level cipher settings
 ```
 
 ## Example usage
@@ -649,3 +655,4 @@ Additionally, we waive copyright and related rights in the work worldwide throug
 [16]: https://pro.arcgis.com/en/pro-app/latest/tool-reference/network-analyst/create-template-from-network-dataset.htm
 [17]: https://enterprise.arcgis.com/en/server/latest/publish-services/windows/edit-map-service-settings.htm
 [18]: https://enterprise.arcgis.com/en/server/latest/get-started/windows/server-extensions.htm
+[19]: https://docs.openssl.org/master/man1/openssl-ciphers/
