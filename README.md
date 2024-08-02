@@ -1,7 +1,5 @@
 # ArcGIS Server Service Publisher
 
-**Note:** This is the development branch for the Python 3.x-compatible version of this project. As such many things may be broken or not documented yet.
-
 ## Overview
 
 The primary purpose of this tool is to automate the publishing of ArcGIS Pro projects to services on ArcGIS Server, using
@@ -20,14 +18,13 @@ of your ArcGIS Server instances.
 
 ## Requirements
 
-- Windows 10
-- ArcGIS Pro 3.1
-- Python 3.9.16
-- [pip 22.2.2][2]
-- [Git for Windows][14] 2.40.0
+- Windows 10+
+- ArcGIS Pro 3.3.x
+- Python 3.11.8
+- [pip 23.3.2][2]
 - Various Python libraries (will be installed by pip as described in the [Installation](#installation) section):
-    - [PyYAML][3] 6.0
-    - [requests][4] 2.28.1
+    - [PyYAML][3] 6.0.1
+    - [requests][4] 2.31.0
 
 ## Installation
 
