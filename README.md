@@ -42,7 +42,7 @@ ArcGIS Pro uses the concept of [conda][15] environments to manage and isolate Py
 
 4. Install the `ags-service-publisher` library:
 
-    `pip install git+https://github.com/cityofaustin/ags-service-publisher.git@python-3#egg=ags-service-publisher`
+    `pip install ags-service-publisher@git+https://github.com/cityofaustin/ags-service-publisher.git`
 
 ## Configuration
 
