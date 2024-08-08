@@ -30,19 +30,25 @@ of your ArcGIS Server instances.
 
 ArcGIS Pro uses the concept of [conda][15] environments to manage and isolate Python packages. The default conda environment included with ArcGIS Pro is read-only, so we will create a new environment by cloning the default one.
 
-1. From the start menu, run the ArcGIS->Python Command Prompt shortcut.
+1. Clone this repository to a local directory.
 
-2. Create a clone of the ArcGIS Pro default conda environment (change `<path_to_local_directory>` to a directory of your choosing):
+2. From the start menu, run the ArcGIS->Python Command Prompt shortcut.
+
+3. Create a clone of the ArcGIS Pro default conda environment (change `<path_to_local_directory>` to the local directory you cloned this repository into):
 
     `conda create --clone arcgispro-py3 --prefix <path_to_local_directory>\arcgispro-py3-clone --no-shortcuts --pinned`
 
-3. Activate the cloned environment:
+4. Activate the cloned environment:
 
     `activate <path_to_local_directory>\arcgispro-py3-clone`
 
-4. Install the `ags-service-publisher` library:
+5. Change directories to the local directory:
 
-    `pip install ags-service-publisher@git+https://github.com/cityofaustin/ags-service-publisher.git`
+    `cd <path_to_local_directory>`
+
+6. Install the `ags-service-publisher` library:
+
+    `pip install .`
 
 ## Configuration
 
