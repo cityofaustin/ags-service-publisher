@@ -324,7 +324,7 @@ def update_layer_data_source(map_, layer, workspace):
         log.debug('Successfully imported arcpy')
         workspace_path = Path(workspace)
         dataset_name = deep_get(layer, 'connectionProperties.dataset')
-        cim = layer.getDefinition('V2')
+        cim = layer.getDefinition('V3')
         data_connection = deep_get(cim, 'dataConnection', deep_get(cim, 'featureTable.dataConnection', None))
         if isinstance(data_connection, arcpy.cim.CIMVectorLayers.CIMSqlQueryDataConnection):
             # Use layer.updateConnectionProperties if layer is a query layer
@@ -339,7 +339,7 @@ def update_layer_data_source(map_, layer, workspace):
             feature_dataset = getattr(data_connection, 'featureDataset', None)
             dummy_layer_path = ((workspace_path / feature_dataset) if feature_dataset else workspace_path) / dataset_name
             dummy_layer = map_.addDataFromPath(str(dummy_layer_path))
-            dummy_cim = dummy_layer.getDefinition('V2')
+            dummy_cim = dummy_layer.getDefinition('V3')
             dummy_cim_data_connection = deep_get(dummy_cim, 'dataConnection', deep_get(dummy_cim, 'featureTable.dataConnection', None))
             current_connection_string = data_connection.workspaceConnectionString
             new_connection_string = dummy_cim_data_connection.workspaceConnectionString
